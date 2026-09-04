@@ -1,21 +1,40 @@
 const controlsUI = document.getElementById('shape-controls');
 let uiFadeTimeout;
+function initShapeControls() {
+    shapeToggle = document.getElementById('shape-toggle');
+    shapeButtonsContainer = document.getElementById('shape-buttons');
+    shapeButtons = Array.from(document.querySelectorAll('.shape-btn'));
+    if (shapeToggle && shapeButtonsContainer) {
+        shapeToggle.addEventListener('click', () => {
+            controlsUI.classList.toggle('open');
+            shapeToggle.classList.toggle('open', controlsUI.classList.contains('open'));
+        });
+    }
+}
 
+let shapeToggle = null;
+let shapeButtons = null;
+let shapeButtonsContainer = null;
 function handlePointerMove(x, y) {
+    if (!shapeToggle || !shapeButtonsContainer) return;
     if (document.getElementById('main-ui').style.opacity === '0') return;
     const isMobile = window.innerWidth <= 768;
-    let isNear = isMobile ? (y > window.innerHeight * 0.55) : (x > window.innerWidth * 0.65);
-
-    if (isNear) {
-        controlsUI.classList.remove('hidden');
-        clearTimeout(uiFadeTimeout);
-        uiFadeTimeout = setTimeout(() => { controlsUI.classList.add('hidden'); }, 2500);
-    } else {
-        controlsUI.classList.add('hidden');
+    const isNear = isMobile ? (y > window.innerHeight * 0.55) : (x > window.innerWidth * 0.6);
+    shapeToggle.classList.toggle('visible', isNear && !shapeButtonsContainer.classList.contains('open'));
+    // Magnify the button under the pointer during touch drag.
+    if (isMobile && shapeButtonsContainer.classList.contains('open')) {
+        shapeButtons.forEach(btn => {
+            const rect = btn.getBoundingClientRect();
+            const within = x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+            btn.classList.toggle('hovered', within);
+        });
     }
 }
 
 window.addEventListener('mousemove', (e) => handlePointerMove(e.clientX, e.clientY));
+window.addEventListener('touchmove', (e) => {
+    if(e.touches.length > 0) handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
+}, {passive: true});
 window.addEventListener('touchstart', (e) => {
     if(e.touches.length > 0) handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
 }, {passive: true}); 
@@ -137,7 +156,7 @@ btnEnter.addEventListener('click', () => {
         startAnimationWhenReady();
 
         controlsUI.classList.remove('hidden');
-        uiFadeTimeout = setTimeout(() => { controlsUI.classList.add('hidden'); }, 3000);
+        
         startQuotesCycle();
         autoOpenLetter();
     }, 1000);
@@ -265,6 +284,8 @@ function startTypewriter() {
         if (!typewriterFrame) {
             typewriterFrame = requestAnimationFrame(() => {
                 box.textContent = letterText.slice(0, typeIndex);
+                const letterBody = document.querySelector('#letter-modal .letter-bg');
+                if (letterBody) letterBody.scrollTop = letterBody.scrollHeight;
                 typewriterFrame = null;
             });
         }
@@ -289,6 +310,7 @@ const totalUploadedPhotos = 120;
 
 let particles;
 
+initShapeControls();
 init();
 preloadAllPhotos();
 animate();
@@ -517,6 +539,6 @@ if (!isFirstTime) {
         autoOpenLetter();
 
         controlsUI.classList.remove('hidden');
-        uiFadeTimeout = setTimeout(() => { controlsUI.classList.add('hidden'); }, 3000);
+        
     }, 100);
 }
