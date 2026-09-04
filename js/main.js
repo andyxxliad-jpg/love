@@ -461,31 +461,32 @@ function enterAnimation() {
     const pageCount = 6;
     const pageImages = Array.from({ length: pageCount }, (_, i) => `assets/images/${i + 1}.webp`);
     const stage = document.createElement('div');
-    stage.className = 'book-stage';
+    stage.className = 'wire-book-stage';
     stage.innerHTML = `
-        <div class="memory-book" aria-label="我们的回忆相册">
-            <div class="book-cover book-cover-back"></div>
-            <div class="book-page-base book-left-base"></div>
-            <div class="book-page-base book-right-base"></div>
-            <div class="book-spine"></div>
-            <div class="book-final-page book-final-left"></div>
-            <div class="book-final-page book-final-right"></div>
-            ${pageImages.map((url, i) => `
-                <div class="book-sheet" data-page="${i + 1}">
-                    <div class="book-face book-front" style="background-image:url(\"${url}\")"><span class="page-number">${i + 1}</span></div>
-                    <div class="book-face book-back" style="background-image:url(\"${url}\")"><span class="page-number">${i + 1}</span></div>
-                </div>`).join('')}
-            <div class="book-cover book-cover-front"></div>
+        <div class="wire-book" aria-label="我们的透明回忆书">
+            <div class="wire-book-outline wire-outline-left"></div>
+            <div class="wire-book-outline wire-outline-right"></div>
+            <div class="wire-book-spine"></div>
+            <div class="wire-book-cover wire-cover-left"></div>
+            <div class="wire-book-cover wire-cover-right"></div>
+            <div class="wire-page-stack">
+                ${pageImages.map((url, i) => `
+                    <div class="wire-page" data-page="${i + 1}">
+                        <div class="wire-page-face wire-page-front" style="background-image:url(\\\"${url}\\\")"><span>${i + 1}</span></div>
+                        <div class="wire-page-face wire-page-back" style="background-image:url(\\\"${url}\\\")"><span>${i + 1}</span></div>
+                    </div>`).join('')}
+            </div>
+            <div class="wire-spread-left"></div>
+            <div class="wire-spread-right"></div>
         </div>`;
     document.body.appendChild(stage);
-    const book = stage.querySelector('.memory-book');
-    const sheets = Array.from(stage.querySelectorAll('.book-sheet'));
-    const finalLeft = stage.querySelector('.book-final-left');
-    const finalRight = stage.querySelector('.book-final-right');
-    finalLeft.style.backgroundImage = `url(\"${pageImages[4]}\")`;
-    finalRight.style.backgroundImage = `url(\"${pageImages[5]}\")`;
+    const book = stage.querySelector('.wire-book');
+    const pages = Array.from(stage.querySelectorAll('.wire-page'));
+    const spreadLeft = stage.querySelector('.wire-spread-left');
+    const spreadRight = stage.querySelector('.wire-spread-right');
+    spreadLeft.style.backgroundImage = `url(\\\"${pageImages[4]}\\\")`;
+    spreadRight.style.backgroundImage = `url(\\\"${pageImages[5]}\\\")`;
 
-    // 六张高清照片先完成下载和解码，翻页时不会出现糊图或空白页。
     const preloadPage = (url) => new Promise(resolve => {
         const image = new Image();
         image.decoding = 'async';
@@ -494,20 +495,18 @@ function enterAnimation() {
         image.src = url;
     });
     Promise.all(pageImages.map(preloadPage)).then(() => {
-        stage.classList.add('book-ready');
-        setTimeout(() => book.classList.add('book-open'), 120);
-        // 每一页连续翻过，六页翻完约 4 秒。
-        sheets.forEach((sheet, index) => {
-            sheet.style.zIndex = String(pageCount - index + 10);
-            setTimeout(() => sheet.classList.add('page-turned'), 900 + index * 700);
+        stage.classList.add('wire-ready');
+        requestAnimationFrame(() => book.classList.add('wire-open'));
+        pages.forEach((page, index) => {
+            page.style.zIndex = String(pageCount - index + 20);
+            setTimeout(() => page.classList.add('wire-turned'), 850 + index * 650);
         });
-        setTimeout(() => book.classList.add('book-spread'), 5200);
-        // 镜头推进书的中缝，随后让照片从四面八方进入爱心。
-        setTimeout(() => book.classList.add('book-zoom'), 5900);
+        setTimeout(() => book.classList.add('wire-spread'), 5050);
+        setTimeout(() => book.classList.add('wire-zoom'), 5450);
         setTimeout(() => {
-            stage.classList.add('book-exit');
+            stage.classList.add('wire-exit');
             launchHeartFromBook(previousAutoRotate, stage);
-        }, 6800);
+        }, 6100);
     });
 }
 
