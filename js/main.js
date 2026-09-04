@@ -386,7 +386,7 @@ function init() {
         size: 9, map: texture, transparent: true, opacity: .95,
         blending: THREE.AdditiveBlending, depthWrite: false }));
     const decorGroup = new THREE.Group();
-    decorGroup.position.set(0, 650, 8000);
+    decorGroup.position.set(0, 0, 0);
     decorGroup.add(decorPoints);
     sceneWebGL.add(decorGroup);
 
@@ -403,7 +403,8 @@ function init() {
     letterInnerEl.style.cssText = 'width:100%;height:auto;color:#fff;font:19px/2.2 "ZCOOL KuaiLe","PingFang SC",sans-serif;text-align:left;letter-spacing:1px;white-space:pre-wrap;overflow-wrap:break-word;text-shadow:0 0 8px rgba(255,255,255,.5);transition:opacity .5s ease,transform .5s ease;';
     letterTextEl.appendChild(letterInnerEl);
     letterObj = new THREE.CSS3DObject(letterTextEl);
-    letterObj.position.set(0, 0, 8020);
+    letterObj.position.set(0, 0, -7800);
+    letterObj.rotation.y = Math.PI;
     letterObj.visible = false;
     sceneCSS.add(letterObj);
 
@@ -662,8 +663,8 @@ function moveCameraToText() {
         const timer = setInterval(() => {
             const p = Math.min(1, (performance.now() - t0) / dur);
             const e = p < 0.5 ? 4*p*p*p : 1 - Math.pow(-2*p+2, 3)/2;
-            camera.position.set(sx + (0 - sx) * e, sy + (0 - sy) * e, sz + (9600 - sz) * e);
-            controls.target.set(tx + (0 - tx) * e, ty + (0 - ty) * e, tz + (8000 - tz) * e);
+            camera.position.set(sx + (0 - sx) * e, sy + (0 - sy) * e, sz + (-9600 - sz) * e);
+            controls.target.set(tx + (0 - tx) * e, ty + (0 - ty) * e, tz + (0 - tz) * e);
             camera.lookAt(controls.target);
             if (p >= 1) { clearInterval(timer); camera.lookAt(controls.target); res(); }
         }, 16);
@@ -839,6 +840,7 @@ async function playMessage() {
     camera.position.set(0, 0, 2800);
     controls.target.set(0, 0, 0);
     camera.lookAt(0, 0, 0);
+    letterObj.rotation.y = 0;
     controls.update();
     messagePlaying = false;
 }
