@@ -127,7 +127,7 @@ function startFullPhotoLoading() {
         }
     };
     // Wait until the entrance animation has finished before decoding large images.
-    setTimeout(() => Promise.all(Array.from({length: MAX_IMAGE_LOADS}, worker)), 3200);
+    setTimeout(() => Promise.all(Array.from({length: MAX_IMAGE_LOADS}, worker)), 7000);
 }
 
 btnLocation.addEventListener('click', () => {
@@ -458,57 +458,59 @@ function enterAnimation() {
     TWEEN.removeAll();
     const previousAutoRotate = controls.autoRotate;
     controls.autoRotate = false;
-    const totalDuration = 5200;
-    const startX = 4600;
-    const crossX = -1200;
-    const exitX = -4300;
+    const carouselCount = Math.min(9, objects.length);
+    const middle = Math.floor(carouselCount / 2);
+    const spacing = 260;
+    const travel = 3600;
+    const carouselDuration = 4200;
+    const state = { progress: 0 };
 
-    const ease = (value) => value * value * (3 - 2 * value);
-    const mix = (from, to, value) => from + (to - from) * value;
-
+    // 只让九张卡片参与首段横向画面，其他卡片隐藏，避免手机同时绘制 120 张 DOM 卡片。
     for (let i = 0; i < objects.length; i++) {
-        const obj = objects[i];
-        const target = targets.heart[i];
-        const startY = (Math.random() - 0.5) * 2200;
-        const startZ = (Math.random() - 0.5) * 1800;
-        const transitY = (Math.random() - 0.5) * 1700;
-        const transitZ = (Math.random() - 0.5) * 1500;
-        const exitY = (Math.random() - 0.5) * 2600;
-        const exitZ = (Math.random() - 0.5) * 2200;
-        const startRotation = { x: Math.random() * Math.PI * 2, y: Math.random() * Math.PI * 2, z: Math.random() * Math.PI };
-
-        obj.position.set(startX, startY, startZ);
-        obj.rotation.set(startRotation.x, startRotation.y, startRotation.z);
-        const state = { progress: 0 };
-
-        new TWEEN.Tween(state)
-            .to({ progress: 1 }, totalDuration)
-            .delay(i * 10)
-            .easing(TWEEN.Easing.Linear.None)
-            .onUpdate(() => {
-                const p = state.progress;
-                if (p < 0.38) {
-                    const t = ease(p / 0.38);
-                    obj.position.set(mix(startX, crossX, t), mix(startY, transitY, t), mix(startZ, transitZ, t));
-                    obj.rotation.set(startRotation.x, startRotation.y, startRotation.z);
-                } else if (p < 0.55) {
-                    const t = ease((p - 0.38) / 0.17);
-                    obj.position.set(mix(crossX, exitX, t), mix(transitY, exitY, t), mix(transitZ, exitZ, t));
-                    obj.rotation.set(mix(startRotation.x, startRotation.x + 0.8, t), mix(startRotation.y, startRotation.y + 1.2, t), mix(startRotation.z, startRotation.z + 0.6, t));
-                } else {
-                    const t = ease((p - 0.55) / 0.45);
-                    obj.position.set(mix(exitX, target.position.x, t), mix(exitY, target.position.y, t), mix(exitZ, target.position.z, t));
-                    obj.rotation.set(mix(startRotation.x + 0.8, target.rotation.x, t), mix(startRotation.y + 1.2, target.rotation.y, t), mix(startRotation.z + 0.6, target.rotation.z, t));
-                }
-            })
-            .onComplete(() => {
-                obj.position.copy(target.position);
-                obj.rotation.copy(target.rotation);
-            })
-            .start();
+        const object = objects[i];
+        object.visible = i < carouselCount;
+        object.rotation.set(0, 0, 0);
+        object.scale.set(1, 1, 1);
+        if (i < carouselCount) {
+            const x = (i - middle) * spacing;
+            object.position.set(x, 0, 0);
+        }
     }
 
-    setTimeout(() => { controls.autoRotate = previousAutoRotate; }, totalDuration + objects.length * 10 + 250);
+    const updateCarousel = () => {
+        for (let i = 0; i < carouselCount; i++) {
+            const object = objects[i];
+            const initialX = (i - middle) * spacing;
+            const x = initialX - state.progress * travel;
+            const distance = Math.abs(x);
+            const focus = Math.max(0, 1 - distance / 620);
+            const scale = 0.72 + focus * 0.68;
+            const depth = focus * 220;
+            object.position.set(x, 0, depth);
+            object.scale.set(scale, scale, scale);
+            object.rotation.set(0, 0, 0);
+        }
+    };
+
+    updateCarousel();
+    new TWEEN.Tween(state)
+        .to({ progress: 1 }, carouselDuration)
+        .easing(TWEEN.Easing.Quadratic.InOut)
+        .onUpdate(updateCarousel)
+        .onComplete(() => {
+            // 照片滑出左侧后全部打散，再汇聚成爱心。
+            for (let i = 0; i < objects.length; i++) {
+                const object = objects[i];
+                object.visible = true;
+                object.position.set(-3600 - Math.random() * 1400, (Math.random() - 0.5) * 2200, (Math.random() - 0.5) * 1800);
+                object.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+                object.scale.set(0.72, 0.72, 0.72);
+            }
+            transform(targets.heart, 2000);
+        })
+        .start();
+
+    setTimeout(() => { controls.autoRotate = previousAutoRotate; }, carouselDuration + 2300);
 }
 
 function transform( targets, duration ) {
@@ -516,6 +518,7 @@ function transform( targets, duration ) {
     for ( let i = 0; i < objects.length; i ++ ) {
         const object = objects[ i ];
         const target = targets[ i ];
+        object.visible = true;
 
         new TWEEN.Tween( object.position )
             .to( { x: target.position.x, y: target.position.y, z: target.position.z }, Math.random() * duration + duration )
@@ -526,8 +529,12 @@ function transform( targets, duration ) {
             .to( { x: target.rotation.x, y: target.rotation.y, z: target.rotation.z }, Math.random() * duration + duration )
             .easing( TWEEN.Easing.Exponential.InOut )
             .start();
+
+        new TWEEN.Tween( object.scale )
+            .to( { x: 1, y: 1, z: 1 }, Math.random() * duration + duration )
+            .easing( TWEEN.Easing.Exponential.InOut )
+            .start();
     }
-    // animate() 已经统一负责 render，避免变形时重复渲染。
 }
 
 function onWindowResize() {
