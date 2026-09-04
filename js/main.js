@@ -223,6 +223,7 @@ let messagePlaying = false;
 let letterTextEl = null;
 let letterInnerEl = null;
 let letterObj = null;
+let decorPoints = null;
 const MESSAGE_TEXT = [
   '其实我不太会表达自己，也是一个特别怕麻烦的人。可是你的出现让我觉得我也是生动的人。谢谢你给了我一个很好的温度，让我感受到了爱和温暖。想起你，我就觉得有了依靠，做事情都多了一份底气。难怪大家都说，被爱好似有靠山。',
   '其实，我真的远比你想象中更需要你，更在意你。谢谢你总能照顾到我的情绪，在意我说过的话。相处这么久也让我很开心，因为有你在。谢谢你靠近我、温暖我、了解我、陪伴我。',
@@ -371,6 +372,21 @@ function init() {
         blending: THREE.AdditiveBlending, depthWrite: false }));
     sceneWebGL.add(ferrisPoints);
 
+    // 文字期间的装饰图案粒子（星星/爱心等，在场景中心）
+    const decorCount = 800;
+    const decorGeo = new THREE.BufferGeometry();
+    const decorPos = new Float32Array(decorCount * 3);
+    for (let i = 0; i < decorCount; i++) {
+        decorPos[i*3] = (Math.random() - .5) * 5000;
+        decorPos[i*3+1] = (Math.random() - .5) * 5000;
+        decorPos[i*3+2] = (Math.random() - .5) * 4000;
+    }
+    decorGeo.setAttribute('position', new THREE.BufferAttribute(decorPos, 3));
+    decorPoints = new THREE.Points(decorGeo, new THREE.PointsMaterial({
+        size: 9, map: texture, transparent: true, opacity: .95,
+        blending: THREE.AdditiveBlending, depthWrite: false }));
+    sceneWebGL.add(decorPoints);
+
     rendererWebGL = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     rendererWebGL.setSize( window.innerWidth, window.innerHeight );
     document.getElementById('webgl-container').appendChild( rendererWebGL.domElement );
@@ -384,7 +400,7 @@ function init() {
     letterInnerEl.style.cssText = 'width:100%;height:auto;color:#fff;font:19px/2.2 "ZCOOL KuaiLe","PingFang SC",sans-serif;text-align:left;letter-spacing:1px;white-space:pre-wrap;overflow-wrap:break-word;text-shadow:0 0 8px rgba(255,255,255,.5);transition:opacity .5s ease,transform .5s ease;';
     letterTextEl.appendChild(letterInnerEl);
     letterObj = new THREE.CSS3DObject(letterTextEl);
-    letterObj.position.set(0, 0, 8020);
+    letterObj.position.set(0, 360, 60);
     letterObj.visible = false;
     sceneCSS.add(letterObj);
 
@@ -643,14 +659,117 @@ function moveCameraToText() {
         const timer = setInterval(() => {
             const p = Math.min(1, (performance.now() - t0) / dur);
             const e = p < 0.5 ? 4*p*p*p : 1 - Math.pow(-2*p+2, 3)/2;
-            camera.position.set(sx + (0 - sx) * e, sy + (0 - sy) * e, sz + (9600 - sz) * e);
-            controls.target.set(tx + (0 - tx) * e, ty + (0 - ty) * e, tz + (8000 - tz) * e);
+            camera.position.set(sx + (0 - sx) * e, sy + (0 - sy) * e, sz + (2800 - sz) * e);
+            controls.target.set(tx + (0 - tx) * e, ty + (0 - ty) * e, tz + (0 - tz) * e);
             camera.lookAt(controls.target);
             if (p >= 1) { clearInterval(timer); camera.lookAt(controls.target); res(); }
         }, 16);
     });
 }
-async function typeMessage(text) {
+async function buildStarPattern() {
+    const pts = [];
+    const R = 400, r = 160;
+    for (let i = 0; i < 10; i++) {
+        const ang = -Math.PI/2 + i * Math.PI/5;
+        const rad = i % 2 === 0 ? R : r;
+        for (let s = 0; s < 8; s++) {
+            const a2 = -Math.PI/2 + (i + s/8) * Math.PI/5;
+            const r2 = i % 2 === 0 ? R + (r - R) * (s/8) : r + (R - r) * (s/8);
+            pts.push(Math.cos(a2)*r2, Math.sin(a2)*r2, 0);
+        }
+    }
+    return pts;
+}
+function buildHeartPattern() {
+    const pts = [];
+    for (let i = 0; i < 400; i++) {
+        const t = (i / 400) * Math.PI * 2;
+        const x = 16 * Math.pow(Math.sin(t), 3);
+        const y = 13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t);
+        pts.push(x * 24, y * 24, 0);
+    }
+    return pts;
+}
+function buildSnowflakePattern() {
+    const pts = [];
+    for (let arm = 0; arm < 6; arm++) {
+        const a = arm * Math.PI / 3;
+        for (let s = 0; s < 30; s++) {
+            const rr = 20 + s * 13;
+            pts.push(Math.cos(a)*rr, Math.sin(a)*rr, 0);
+            pts.push(Math.cos(a + .15)*rr*.7, Math.sin(a + .15)*rr*.7, 0);
+            pts.push(Math.cos(a - .15)*rr*.7, Math.sin(a - .15)*rr*.7, 0);
+        }
+    }
+    return pts;
+}
+function buildCatPattern() {
+    const pts = [];
+    for (let i = 0; i < 300; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const rr = Math.sqrt(Math.random()) * 260;
+        pts.push(Math.cos(a)*rr, Math.sin(a)*rr - 40, 0);
+    }
+    // 两只三角耳
+    for (let i = 0; i < 60; i++) {
+        const t = i / 60;
+        pts.push(-160 + t*100, 200 + t*60, 0);
+        pts.push(160 - t*100, 200 + t*60, 0);
+    }
+    return pts;
+}
+function buildDogPattern() {
+    const pts = [];
+    for (let i = 0; i < 300; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const rr = Math.sqrt(Math.random()) * 260;
+        pts.push(Math.cos(a)*rr, Math.sin(a)*rr - 40, 0);
+    }
+    // 两只垂耳
+    for (let i = 0; i < 70; i++) {
+        const t = i / 70;
+        pts.push(-180, 220 - t*260, 0);
+        pts.push(180, 220 - t*260, 0);
+    }
+    return pts;
+}
+function decorScatter() {
+    const arr = [];
+    for (let i = 0; i < 800; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const r = 900 + Math.random() * 2200;
+        arr.push(Math.cos(a)*r, Math.sin(a)*r, (Math.random()-.5)*2500);
+    }
+    return arr;
+}
+function showDecor(patternArr) {
+    return new Promise(res => {
+        const n3 = patternArr.length;
+        const posAttr = decorPoints.geometry.attributes.position;
+        const scatter = decorScatter();
+        const t0 = performance.now();
+        const dur = 1200;
+        const timer = setInterval(() => {
+            const p = Math.min(1, (performance.now() - t0) / dur);
+            const e = p < 0.5 ? 4*p*p*p : 1 - Math.pow(-2*p+2, 3)/2;
+            for (let i = 0; i < 800; i++) {
+                const k = i*3;
+                if (k < n3) {
+                    posAttr.array[k] = scatter[k]*(1-e) + patternArr[k]*e;
+                    posAttr.array[k+1] = scatter[k+1]*(1-e) + patternArr[k+1]*e;
+                    posAttr.array[k+2] = scatter[k+2]*(1-e) + patternArr[k+2]*e;
+                } else {
+                    posAttr.array[k] *= .96;
+                    posAttr.array[k+1] *= .96;
+                    posAttr.array[k+2] *= .96;
+                }
+            }
+            posAttr.needsUpdate = true;
+            if (p >= 1) { clearInterval(timer); res(); }
+        }, 16);
+    });
+}
+function typeMessage(text) {
     letterInnerEl.textContent = '';
     for (let i = 0; i < text.length; i++) {
         letterInnerEl.textContent = text.slice(0, i + 1);
@@ -675,11 +794,13 @@ async function playMessage() {
     letterTextEl.style.display = 'flex';
     transform(targets.message, 1800);
     animateTrunk(false); animateFerris(false);
-    await moveCameraToText();      // setInterval 驱动，时间一到直接划过去
+    await moveCameraToText();
     await wait(400);
+    const decorPatterns = [buildStarPattern, buildHeartPattern, buildSnowflakePattern, buildCatPattern, buildDogPattern];
     for (let i = 0; i < MESSAGE_TEXT.length; i++) {
         letterInnerEl.style.opacity = '1';
         letterInnerEl.style.transform = 'translateY(0)';
+        await showDecor(decorPatterns[i % decorPatterns.length]());  // 中心摆图案
         await typeMessage(MESSAGE_TEXT[i]);   // DOM 打字机，一定显示
         await wait(5200);
         if (i < MESSAGE_TEXT.length - 1) {
@@ -692,6 +813,15 @@ async function playMessage() {
     await wait(650);
     letterObj.visible = false;
     letterTextEl.style.display = 'none';
+    // 装饰粒子散开
+    const dp = decorPoints.geometry.attributes.position;
+    const sc = decorScatter();
+    for (let i = 0; i < 800; i++) {
+        dp.array[i*3] = sc[i*3];
+        dp.array[i*3+1] = sc[i*3+1];
+        dp.array[i*3+2] = sc[i*3+2];
+    }
+    dp.needsUpdate = true;
     await wait(400);
     const restoreName = SHAPE_NAMES[prevShape];
     transform(targets[restoreName], 1600);
