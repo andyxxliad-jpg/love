@@ -818,7 +818,7 @@ function fadeMessageUp() {
     });
 }
 async function playMessage() {
-    // 终止正在进行的运镜动画
+    // 优先级最高：终止一切进行中的操作
     if (tourPlaying) {
         if (tourTimer) clearInterval(tourTimer);
         if (moveTimer) clearInterval(moveTimer);
@@ -826,6 +826,11 @@ async function playMessage() {
         moveTimer = null;
         tourPlaying = false;
     }
+    shapeBusy = false;
+    TWEEN.removeAll();
+    hideModal('photo-modal');
+    hideModal('letter-modal');
+    hideModal('tips-modal');
     messagePlaying = true;
     const prevAutoRotate = controls.autoRotate;
     const prevEnabled = controls.enabled;
