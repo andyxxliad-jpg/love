@@ -38,7 +38,7 @@ html, body {
 .num { font-size: 30px; margin: 0 4px; color: #ff8ca3; text-shadow: 0 0 10px rgba(255,140,163,0.5); }
 .subtitle { font-size: 13px; opacity: 0.6; margin-top: 5px; pointer-events: none; }
 
-.controls { position: absolute; bottom: 26vh; right: 0; left: 0; display: flex; flex-direction: column; align-items: center; gap: 12px; pointer-events: auto; z-index: 15; }
+.controls { position: absolute; bottom: 26vh; right: 18px; display: flex; flex-direction: column; align-items: flex-end; gap: 12px; pointer-events: auto; z-index: 15; }
 .shape-toggle { font-family: 'ZCOOL KuaiLe', sans-serif; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.35); color: #fff; width: 46px; height: 46px; padding: 0; border-radius: 50%; cursor: pointer; backdrop-filter: blur(4px); font-size: 22px; line-height: 44px; transition: transform .25s, background .25s, opacity .3s; opacity: .45; }
 .shape-toggle:hover, .shape-toggle.visible { opacity: 1; }
 .shape-toggle.open { transform: rotate(45deg); background: rgba(255,140,163,0.45); }
@@ -46,6 +46,7 @@ html, body {
 .controls.open .shape-buttons { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
 .shape-btn { font-family: 'ZCOOL KuaiLe', sans-serif; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.32); color: #fff; padding: 9px 16px; border-radius: 22px; cursor: pointer; backdrop-filter: blur(4px); font-size: 14px; transition: transform .18s, background .18s, box-shadow .18s; }
 .shape-btn.hovered { transform: scale(1.22); background: rgba(255,140,163,0.55); border-color: #ff8ca3; box-shadow: 0 0 18px rgba(255,140,163,0.6); }
+.shape-btn:hover { transform: scale(1.18); background: rgba(255,140,163,0.42); }
 
 .lyrics-box { position: absolute; bottom: 15vh; left: 0; right: 0; margin: 0 auto; text-align: center; width: 90%; font-size: 18px; letter-spacing: 1px; text-shadow: 0 2px 8px rgba(0,0,0,0.9); color: #fff; transition: opacity 0.8s ease-in-out; pointer-events: none; line-height: 1.6; }
 .quotes-fade-out { opacity: 0 !important; }
@@ -60,7 +61,7 @@ html, body {
     .badge { font-size: 14px; padding: 4px 14px; margin-bottom: 10px; }
     .timer-box { font-size: 15px; line-height: 1.8; }
     .num { font-size: 24px; }
-    .controls { bottom: 23vh; }
+    .controls { bottom: 23vh; right: 10px; }
     .shape-btn { padding: 8px 14px; font-size: 13px; border-radius: 20px; }
     .lyrics-box { bottom: 12vh; font-size: 16px; padding: 0 20px; }
     .nav-bar { bottom: 4vh; gap: 15px; }
