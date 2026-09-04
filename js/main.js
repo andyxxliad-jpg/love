@@ -457,148 +457,149 @@ function init() {
 
 let activeBook = null;
 let entranceCancelled = false;
+let entranceRunId = 0;
 
 function enterAnimation() {
+    cancelBookEntrance();
     TWEEN.removeAll();
     entranceCancelled = false;
+    const runId = ++entranceRunId;
     const previousAutoRotate = controls.autoRotate;
     const previousEnabled = controls.enabled;
-    const previousCameraPosition = camera.position.clone();
-    const previousTarget = controls.target.clone();
+    const savedCamera = camera.position.clone();
+    const savedTarget = controls.target.clone();
     controls.autoRotate = false;
-    controls.enabled = true;
+    controls.enabled = false;
 
     const pageCount = 6;
-    const pageImages = Array.from({ length: pageCount }, (_, i) => `assets/images/${i + 1}.webp`);
     const isMobile = window.innerWidth <= 768;
-    const pageWidth = isMobile ? 430 : 600;
-    const pageHeight = isMobile ? 600 : 820;
+    const pageWidth = isMobile ? 390 : 560;
+    const pageHeight = isMobile ? 540 : 760;
     const book = new THREE.Group();
-    book.position.set(0, 0, -120);
-    book.rotation.set(THREE.MathUtils.degToRad(-8), THREE.MathUtils.degToRad(-5), 0);
-    book.scale.set(.72, .72, .72);
+    book.position.set(0, 0, -150);
+    book.rotation.set(THREE.MathUtils.degToRad(-8), THREE.MathUtils.degToRad(-8), 0);
+    book.scale.set(.62, .62, .62);
     sceneCSS.add(book);
-    activeBook = { book, previousAutoRotate, previousEnabled, previousCameraPosition, previousTarget };
+    activeBook = { book, previousAutoRotate, previousEnabled, savedCamera, savedTarget, runId };
 
-    const makePanel = (className, width, height) => {
-        const panel = document.createElement('div');
-        panel.className = className;
-        panel.style.width = `${width}px`;
-        panel.style.height = `${height}px`;
-        return panel;
+    const panel = (className, w, h) => {
+        const el = document.createElement('div');
+        el.className = className;
+        el.style.width = `${w}px`;
+        el.style.height = `${h}px`;
+        return el;
     };
-    const makePaperPage = (url, index) => {
+    const addPanel = (className, w, h, x, y, z) => {
+        const obj = new THREE.CSS3DObject(panel(className, w, h));
+        obj.position.set(x, y, z);
+        book.add(obj);
+        return obj;
+    };
+
+    addPanel('book3d-base book3d-base-left', pageWidth, pageHeight, -pageWidth / 2, 0, -25);
+    addPanel('book3d-base book3d-base-right', pageWidth, pageHeight, pageWidth / 2, 0, -25);
+    addPanel('book3d-spine', 16, pageHeight + 38, 0, 0, 50);
+    addPanel('book3d-cover book3d-cover-left', pageWidth, pageHeight, -pageWidth / 2, 0, 38);
+
+    const rightCoverHinge = new THREE.Object3D();
+    rightCoverHinge.position.set(0, 0, 48);
+    const rightCoverObj = new THREE.CSS3DObject(panel('book3d-cover book3d-cover-right', pageWidth, pageHeight));
+    rightCoverObj.position.set(pageWidth / 2, 0, 0);
+    rightCoverHinge.add(rightCoverObj);
+    book.add(rightCoverHinge);
+
+    const makePage = (index) => {
         const hinge = new THREE.Object3D();
-        hinge.position.set(0, 0, 30 - index * 3);
-        const page = makePanel('true3d-paper-page', pageWidth, pageHeight);
-        const front = makePanel('true3d-paper-face true3d-paper-front', pageWidth, pageHeight);
-        const back = makePanel('true3d-paper-face true3d-paper-back', pageWidth, pageHeight);
-        const frontImage = document.createElement('img');
-        const backImage = document.createElement('img');
-        frontImage.src = url;
-        backImage.src = url;
-        frontImage.alt = `我们的回忆 ${index + 1}`;
-        backImage.alt = `我们的回忆 ${index + 1}`;
-        frontImage.draggable = false;
-        backImage.draggable = false;
-        front.appendChild(frontImage);
-        back.appendChild(backImage);
-        page.appendChild(front);
-        page.appendChild(back);
-        const cssPage = new THREE.CSS3DObject(page);
-        cssPage.position.set(pageWidth / 2, 0, 0);
-        hinge.add(cssPage);
+        hinge.position.set(0, 0, 42 - index * 3);
+        const holder = panel('book3d-paper', pageWidth, pageHeight);
+        holder.style.zIndex = String(60 - index);
+        const front = panel('book3d-face book3d-face-front', pageWidth, pageHeight);
+        const back = panel('book3d-face book3d-face-back', pageWidth, pageHeight);
+        const frontImg = document.createElement('img');
+        const backImg = document.createElement('img');
+        const fullUrl = `assets/images/${index + 1}.webp`;
+        const thumbUrl = `assets/images/thumbs/${index + 1}.webp`;
+        [frontImg, backImg].forEach(img => {
+            img.src = thumbUrl;
+            img.alt = `我们的回忆 ${index + 1}`;
+            img.draggable = false;
+        });
+        front.appendChild(frontImg);
+        back.appendChild(backImg);
+        holder.appendChild(front);
+        holder.appendChild(back);
+        const pageObj = new THREE.CSS3DObject(holder);
+        pageObj.position.set(pageWidth / 2, 0, 0);
+        hinge.add(pageObj);
         book.add(hinge);
-        return { hinge, page, front, back };
+        return { hinge, holder, frontImg, backImg, fullUrl, thumbUrl };
     };
+    const pages = Array.from({length: pageCount}, (_, i) => makePage(i));
 
-    const leftBase = new THREE.CSS3DObject(makePanel('true3d-book-base true3d-book-base-left', pageWidth, pageHeight));
-    leftBase.position.set(-pageWidth / 2, 0, -25);
-    book.add(leftBase);
-    const rightBase = new THREE.CSS3DObject(makePanel('true3d-book-base true3d-book-base-right', pageWidth, pageHeight));
-    rightBase.position.set(pageWidth / 2, 0, -25);
-    book.add(rightBase);
-    const spine = new THREE.CSS3DObject(makePanel('true3d-book-spine', 14, pageHeight + 40));
-    spine.position.set(0, 0, 45);
-    book.add(spine);
-    const leftCover = new THREE.CSS3DObject(makePanel('true3d-book-cover true3d-book-cover-left', pageWidth, pageHeight));
-    leftCover.position.set(-pageWidth / 2, 0, 40);
-    book.add(leftCover);
-    const coverHinge = new THREE.Object3D();
-    coverHinge.position.set(0, 0, 48);
-    const rightCover = new THREE.CSS3DObject(makePanel('true3d-book-cover true3d-book-cover-right', pageWidth, pageHeight));
-    rightCover.position.set(pageWidth / 2, 0, 0);
-    coverHinge.add(rightCover);
-    book.add(coverHinge);
-    const pages = pageImages.map(makePaperPage);
+    const loadFull = (item) => new Promise(resolve => {
+        const image = new Image();
+        image.decoding = 'async';
+        let settled = false;
+        const done = (useFull) => {
+            if (settled) return;
+            settled = true;
+            if (useFull) {
+                item.frontImg.src = item.fullUrl;
+                item.backImg.src = item.fullUrl;
+            }
+            resolve();
+        };
+        image.onload = () => {
+            if (image.decode) image.decode().catch(() => {}).finally(() => done(true));
+            else done(true);
+        };
+        image.onerror = () => done(false);
+        image.src = item.fullUrl;
+        setTimeout(() => done(false), 4500);
+    });
 
-    function preloadBookImage(url, attempt = 0) {
-        return new Promise((resolve, reject) => {
-            const image = new Image();
-            image.decoding = 'async';
-            image.onload = () => {
-                const done = () => resolve(image);
-                if (image.decode) image.decode().catch(() => {}).finally(done);
-                else done();
-            };
-            image.onerror = () => {
-                if (attempt < 2) setTimeout(() => preloadBookImage(url, attempt + 1).then(resolve).catch(reject), 180);
-                else reject(new Error(`无法加载书页照片 ${url}`));
-            };
-            image.src = url;
-        });
-    }
-
-    Promise.all(pageImages.map(preloadBookImage)).then(() => {
-        if (entranceCancelled || !activeBook || activeBook.book !== book) return;
+    Promise.all(pages.map(loadFull)).then(() => {
+        if (entranceCancelled || !activeBook || activeBook.runId !== runId) return;
         book.visible = true;
-        new TWEEN.Tween(book.scale).to({ x: 1, y: 1, z: 1 }, 800).easing(TWEEN.Easing.Cubic.Out).start();
-        new TWEEN.Tween(book.rotation).to({ x: THREE.MathUtils.degToRad(-4), y: 0, z: 0 }, 800).easing(TWEEN.Easing.Cubic.Out).start();
-        new TWEEN.Tween(coverHinge.rotation).to({ y: -Math.PI * .88 }, 900).delay(500).easing(TWEEN.Easing.Cubic.InOut).start();
-        pages.forEach((item, index) => {
-            item.page.style.zIndex = String(pageCount - index + 20);
-        });
-        flipPagesOneByOne(pages, 0, book, previousAutoRotate);
-    }).catch(error => {
-        console.warn('书页预加载失败，取消开场动画', error);
-        finishBookEntrance(activeBook);
-        launchHeartFromBook(previousAutoRotate, null);
+        new TWEEN.Tween(book.scale).to({x: 1, y: 1, z: 1}, 700).easing(TWEEN.Easing.Cubic.Out).start();
+        new TWEEN.Tween(book.rotation).to({x: THREE.MathUtils.degToRad(-3), y: 0, z: 0}, 700).easing(TWEEN.Easing.Cubic.Out).start();
+        new TWEEN.Tween(rightCoverHinge.rotation).to({y: -Math.PI * .88}, 850).delay(500).easing(TWEEN.Easing.Cubic.InOut).start();
+        flipBookPages(pages, 0, book, runId);
     });
 }
 
-function flipPagesOneByOne(pages, index, book, previousAutoRotate) {
-    if (entranceCancelled || !activeBook || activeBook.book !== book) return;
-    if (index >= pages.length) {
-        setTimeout(() => {
-            if (entranceCancelled || !activeBook || activeBook.book !== book) return;
-            const state = activeBook;
-            const cameraStart = camera.position.clone();
-            new TWEEN.Tween(camera.position).to({ x: 0, y: 0, z: 560 }, 1000).easing(TWEEN.Easing.Cubic.InOut).start();
-            new TWEEN.Tween(book.scale).to({ x: 2.8, y: 2.8, z: 2.8 }, 1000).easing(TWEEN.Easing.Cubic.InOut).start();
-            setTimeout(() => {
-                if (entranceCancelled || !activeBook || activeBook.book !== book) return;
-                finishBookEntrance(state);
-                launchHeartFromBook(previousAutoRotate, null);
-            }, 1250);
-        }, 450);
+function flipBookPages(pages, index, book, runId) {
+    if (entranceCancelled || !activeBook || activeBook.runId !== runId) return;
+    if (index < pages.length) {
+        const item = pages[index];
+        const state = { angle: 0 };
+        new TWEEN.Tween(state)
+            .to({angle: -Math.PI}, 760)
+            .delay(index === 0 ? 600 : 100)
+            .easing(TWEEN.Easing.Cubic.InOut)
+            .onUpdate(() => {
+                item.hinge.rotation.y = state.angle;
+                if (state.angle < -Math.PI * .5) item.holder.style.zIndex = String(8 + index);
+            })
+            .onComplete(() => {
+                item.hinge.rotation.y = -Math.PI;
+                flipBookPages(pages, index + 1, book, runId);
+            })
+            .start();
         return;
     }
-    const page = pages[index];
-    const flipState = { angle: 0 };
-    new TWEEN.Tween(flipState)
-        .to({ angle: -Math.PI }, 720)
-        .delay(index === 0 ? 450 : 80)
-        .easing(TWEEN.Easing.Cubic.InOut)
-        .onUpdate(() => {
-            page.hinge.rotation.y = flipState.angle;
-            // 翻完的页面退到书页底部，下一张照片不会被遮住。
-            if (flipState.angle < -Math.PI * .55) page.page.style.zIndex = String(5 + index);
-        })
-        .onComplete(() => {
-            page.hinge.rotation.y = -Math.PI;
-            flipPagesOneByOne(pages, index + 1, book, previousAutoRotate);
-        })
-        .start();
+    // 书页完成后先停留片刻，再推进镜头，最后无条件清理书本。
+    setTimeout(() => {
+        if (entranceCancelled || !activeBook || activeBook.runId !== runId) return;
+        new TWEEN.Tween(camera.position).to({x: 0, y: 0, z: 620}, 900).easing(TWEEN.Easing.Cubic.InOut).start();
+        new TWEEN.Tween(book.scale).to({x: 2.25, y: 2.25, z: 2.25}, 900).easing(TWEEN.Easing.Cubic.InOut).start();
+        setTimeout(() => {
+            if (!activeBook || activeBook.runId !== runId) return;
+            const state = activeBook;
+            finishBookEntrance(state);
+            launchHeartFromBook(state.previousAutoRotate, null);
+        }, 1050);
+    }, 350);
 }
 
 function finishBookEntrance(bookState) {
@@ -607,24 +608,29 @@ function finishBookEntrance(bookState) {
     TWEEN.removeAll();
     bookState.book.visible = false;
     sceneCSS.remove(bookState.book);
-    camera.position.copy(bookState.previousCameraPosition);
-    controls.target.copy(bookState.previousTarget);
+    camera.position.copy(bookState.savedCamera);
+    controls.target.copy(bookState.savedTarget);
     controls.enabled = bookState.previousEnabled;
     controls.autoRotate = bookState.previousAutoRotate;
     controls.update();
+    document.getElementById('main-ui').style.opacity = '1';
+    document.getElementById('main-ui').style.pointerEvents = 'none';
+    controlsUI.classList.remove('hidden');
     rendererCSS.render(sceneCSS, camera);
     activeBook = null;
 }
 
 function cancelBookEntrance() {
     if (!activeBook) return false;
-    finishBookEntrance(activeBook);
+    const state = activeBook;
+    finishBookEntrance(state);
     objects.forEach(object => { object.visible = true; });
     return true;
 }
 
 function launchHeartFromBook(previousAutoRotate, unusedBookStage) {
     TWEEN.removeAll();
+    controls.enabled = false;
     for (let i = 0; i < objects.length; i++) {
         const object = objects[i];
         const distance = 3000 + Math.random() * 1600;
@@ -645,6 +651,9 @@ function launchHeartFromBook(previousAutoRotate, unusedBookStage) {
         objects.forEach(object => { object.element.style.willChange = 'auto'; });
         controls.autoRotate = previousAutoRotate;
         controls.enabled = true;
+        document.getElementById('main-ui').style.opacity = '1';
+        document.getElementById('main-ui').style.pointerEvents = 'none';
+        controlsUI.classList.remove('hidden');
         startFullPhotoLoading();
     }, 2600);
 }
@@ -704,7 +713,6 @@ if (!isFirstTime) {
     document.getElementById('welcome-screen').style.display = 'none';
     
     setTimeout(() => {
-        document.getElementById('main-ui').style.opacity = '1';
         document.getElementById('main-ui').style.pointerEvents = 'none';
         
         const waitForThumbs = () => {
