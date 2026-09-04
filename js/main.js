@@ -401,6 +401,12 @@ function init() {
         blending: THREE.AdditiveBlending, depthWrite: false }));
     sceneWebGL.add(messagePoints);
 
+    rendererWebGL = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    rendererWebGL.setSize( window.innerWidth, window.innerHeight );
+    document.getElementById('webgl-container').appendChild( rendererWebGL.domElement );
+
+    sceneCSS = new THREE.Scene();
+
     // 黑色纸（CSS3D，圆心位置，小作文打字背景）
     const blackPaperEl = document.createElement('div');
     blackPaperEl.style.width = '720px';
@@ -413,11 +419,6 @@ function init() {
     blackPaper.visible = false;
     sceneCSS.add(blackPaper);
 
-    rendererWebGL = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-    rendererWebGL.setSize( window.innerWidth, window.innerHeight );
-    document.getElementById('webgl-container').appendChild( rendererWebGL.domElement );
-
-    sceneCSS = new THREE.Scene();
 
     for ( let i = 0; i < photoCount; i ++ ) {
         const element = document.createElement( 'div' );
