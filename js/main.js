@@ -362,7 +362,7 @@ function init() {
         element.className = 'element';
         
         let imgIndex = (i % totalUploadedPhotos) + 1;
-        element.style.backgroundImage = `url('assets/images/thumbs/${imgIndex}.webp')`;
+        element.style.backgroundImage = `url('assets/images/tiny/${imgIndex}.webp')`;
         
         let pointerDownPos = { x: 0, y: 0 };
         element.addEventListener('pointerdown', (e) => {
@@ -387,7 +387,7 @@ function init() {
         // 背面面板：与正面共享同一照片，绕 Y 轴旋转 180 度，爱心旋转时背面不再空白。
         const backElement = document.createElement( 'div' );
         backElement.className = 'element element-back';
-        backElement.style.backgroundImage = `url('assets/images/thumbs/${imgIndex}.webp')`;
+        backElement.style.backgroundImage = `url('assets/images/tiny/${imgIndex}.webp')`;
         const backCSS = new THREE.CSS3DObject( backElement );
         backCSS.rotation.y = Math.PI;
         objectCSS.add( backCSS );
@@ -478,35 +478,44 @@ function preloadThumbs() {
 
 function enterAnimation() {
     TWEEN.removeAll();
-    const duration = 1500;
+    const duration = 2000;
     for (let i = 0; i < objects.length; i++) {
         const object = objects[i];
         const target = targets.heart[i];
         object.visible = true;
-        object.scale.set(1, 1, 1);
+        object.scale.set(0.2, 0.2, 0.2);
         const imgIndex = (i % totalUploadedPhotos) + 1;
         // 入场阶段先显示轻量预览图，避免大量高清图解码造成卡顿。
-        object.element.style.backgroundImage = `url('assets/images/thumbs/${imgIndex}.webp')`;
-        if (object.userData.backElement) object.userData.backElement.style.backgroundImage = `url('assets/images/thumbs/${imgIndex}.webp')`;
+        object.element.style.backgroundImage = `url('assets/images/tiny/${imgIndex}.webp')`;
+        if (object.userData.backElement) object.userData.backElement.style.backgroundImage = `url('assets/images/tiny/${imgIndex}.webp')`;
+        // 从外圈螺旋进入：半径随进度缩小，同时自转，最后停在心形目标上。
+        const angle = Math.random() * Math.PI * 2;
+        const radius = 5000 + Math.random() * 2500;
         object.position.set(
-            4000 + Math.random() * 2000,
-            (Math.random() - 0.5) * 2400,
-            (Math.random() - 0.5) * 2000
+            Math.cos(angle) * radius,
+            (Math.random() - 0.5) * 2600,
+            Math.sin(angle) * radius
         );
-        object.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+        object.rotation.set(Math.random() * Math.PI * 2, Math.random() * Math.PI * 2, Math.random() * Math.PI);
+        const delay = (i % 40) * 18 + Math.random() * 120;
         new TWEEN.Tween(object.position)
-            .to({ x: target.position.x, y: target.position.y, z: target.position.z }, duration + Math.random() * 500)
+            .to({ x: target.position.x, y: target.position.y, z: target.position.z }, duration)
             .easing(TWEEN.Easing.Exponential.InOut)
-            .delay(i * 8)
+            .delay(delay)
             .start();
         new TWEEN.Tween(object.rotation)
-            .to({ x: target.rotation.x, y: target.rotation.y, z: target.rotation.z }, duration + Math.random() * 500)
+            .to({ x: target.rotation.x, y: target.rotation.y, z: target.rotation.z }, duration)
             .easing(TWEEN.Easing.Exponential.InOut)
-            .delay(i * 8)
+            .delay(delay)
+            .start();
+        new TWEEN.Tween(object.scale)
+            .to({ x: 1, y: 1, z: 1 }, duration)
+            .easing(TWEEN.Easing.Back.Out)
+            .delay(delay)
             .start();
     }
     // 动画结束后，把所有卡片换成高清原图。
-    const swapDelay = duration + 900;
+    const swapDelay = duration + 1200;
     setTimeout(() => {
         for (let i = 0; i < objects.length; i++) {
             const imgIndex = (i % totalUploadedPhotos) + 1;
