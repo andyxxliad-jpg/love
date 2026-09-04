@@ -491,7 +491,7 @@ function init() {
             Math.sin( a ) * r + ( Math.random() - .5 ) * 280,
             ( Math.random() - .5 ) * 320
         );
-        object.lookAt( 0, 0, -9600 );
+        object.lookAt( Math.cos( a ) * 3000, Math.sin( a ) * 3000, 0 );
         targets.message.push( object );
     }
 
@@ -852,8 +852,17 @@ async function playMessage() {
     letterOverlay.style.opacity = '1';
     transform(targets.message, 1800);
     animateTrunk(false); animateFerris(false);
-    await moveCameraToText();
-    await wait(400);
+    await wait(1900);
+    // 文字期间：镜头环绕照片圈，电影级线性展示照片
+    const msgTourT0 = performance.now();
+    const msgTour = setInterval(() => {
+        const raw = ((performance.now() - msgTourT0) / 14000) % 1;
+        const e = raw < 0.5 ? 4*raw*raw*raw : 1 - Math.pow(-2*raw+2, 3)/2;
+        const t = e * Math.PI * 2;
+        camera.position.set(Math.cos(t)*2350, 220 + Math.sin(t*2.2)*240, Math.sin(t)*2350);
+        controls.target.set(0, 0, 0);
+        camera.lookAt(controls.target);
+    }, 16);
     // 图案每秒轮播（带切换动画）
     const patterns = [buildStarPattern, buildHeartPattern, buildSnowflakePattern, buildCatPattern, buildDogPattern];
     let patIdx = 0;
@@ -880,6 +889,7 @@ async function playMessage() {
         }
     }
     clearInterval(patTimer);
+    clearInterval(msgTour);
     if (decorTimer) clearInterval(decorTimer);
     const blackout = document.getElementById('blackout');
     if (blackout) blackout.classList.add('show');
