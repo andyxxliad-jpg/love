@@ -1,93 +1,21 @@
 const controlsUI = document.getElementById('shape-controls');
 let uiFadeTimeout;
-function initShapeControls() {
-    shapeToggle = document.getElementById('shape-toggle');
-    shapeButtonsContainer = document.getElementById('shape-buttons');
-    shapeButtons = Array.from(document.querySelectorAll('.shape-btn'));
-    if (!shapeToggle || !shapeButtonsContainer) return;
 
-    const getShapeTarget = (btn) => {
-        if (!btn) return null;
-        if (btn.id === 'btn-heart') return targets.heart;
-        if (btn.id === 'btn-sphere') return targets.sphere;
-        if (btn.id === 'btn-helix') return targets.helix;
-        if (btn.id === 'btn-grid') return targets.grid;
-        return null;
-    };
-    const buttonFromPoint = (x, y) => {
-        for (const btn of shapeButtons) {
-            const rect = btn.getBoundingClientRect();
-            if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) return btn;
-        }
-        return null;
-    };
-
-    let pressActive = false;
-    let lastHover = null;
-
-    const preview = (btn) => {
-        if (!btn) return;
-        const target = getShapeTarget(btn);
-        if (!target) return;
-        shapeButtons.forEach(other => other.classList.toggle('hovered', other === btn));
-        if (lastHover !== btn) {
-            lastHover = btn;
-            transform(target, 650);
-        }
-    };
-    const endPress = () => {
-        pressActive = false;
-        lastHover = null;
-        shapeButtons.forEach(btn => btn.classList.remove('hovered'));
-    };
-
-    shapeToggle.addEventListener('click', () => {
-        const open = controlsUI.classList.toggle('open');
-        shapeToggle.classList.toggle('open', open);
-    });
-
-    // 在按钮区域按下即进入滑选模式（无论点击还是长按都生效）。
-    shapeButtonsContainer.addEventListener('pointerdown', (e) => {
-        pressActive = true;
-        const btn = e.target.closest('.shape-btn');
-        if (btn) preview(btn);
-    });
-    window.addEventListener('pointermove', (e) => {
-        if (!pressActive) return;
-        const btn = buttonFromPoint(e.clientX, e.clientY);
-        if (btn) preview(btn);
-    });
-    window.addEventListener('pointerup', () => {
-        if (pressActive) endPress();
-    });
-    window.addEventListener('pointercancel', () => {
-        if (pressActive) endPress();
-    });
-}
-
-let shapeToggle = null;
-let shapeButtons = null;
-let shapeButtonsContainer = null;
 function handlePointerMove(x, y) {
-    if (!shapeToggle || !shapeButtonsContainer) return;
     if (document.getElementById('main-ui').style.opacity === '0') return;
     const isMobile = window.innerWidth <= 768;
-    const isNear = isMobile ? (y > window.innerHeight * 0.55) : (x > window.innerWidth * 0.6);
-    shapeToggle.classList.toggle('visible', isNear && !shapeButtonsContainer.classList.contains('open'));
-    // Magnify the button under the pointer during touch drag.
-    if (isMobile && shapeButtonsContainer.classList.contains('open')) {
-        shapeButtons.forEach(btn => {
-            const rect = btn.getBoundingClientRect();
-            const within = x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
-            btn.classList.toggle('hovered', within);
-        });
+    let isNear = isMobile ? (y > window.innerHeight * 0.55) : (x > window.innerWidth * 0.65);
+
+    if (isNear) {
+        controlsUI.classList.remove('hidden');
+        clearTimeout(uiFadeTimeout);
+        uiFadeTimeout = setTimeout(() => { controlsUI.classList.add('hidden'); }, 2500);
+    } else {
+        controlsUI.classList.add('hidden');
     }
 }
 
 window.addEventListener('mousemove', (e) => handlePointerMove(e.clientX, e.clientY));
-window.addEventListener('touchmove', (e) => {
-    if(e.touches.length > 0) handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
-}, {passive: true});
 window.addEventListener('touchstart', (e) => {
     if(e.touches.length > 0) handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
 }, {passive: true}); 
@@ -98,68 +26,6 @@ const weatherText = document.getElementById('weather-text');
 const welcomeScreen = document.getElementById('welcome-screen');
 const mainUI = document.getElementById('main-ui');
 let audio = document.getElementById('bgm');
-let photosReady = false;
-let photosLoaded = 0;
-
-function updatePhotoLoading() {
-    const bar = document.getElementById('photo-progress-bar');
-    const count = document.getElementById('photo-loading-count');
-    const percent = Math.round((photosLoaded / totalUploadedPhotos) * 100);
-    if (bar) bar.style.width = `${percent}%`;
-    if (count) count.textContent = `照片准备中 ${photosLoaded} / ${totalUploadedPhotos}`;
-}
-
-function preloadAllPhotos() {
-    const imageUrls = [];
-    for (let index = 1; index <= totalUploadedPhotos; index++) {
-        imageUrls.push(`assets/images/${index}.webp`);
-    }
-    const loaded = new Array(totalUploadedPhotos).fill(false);
-    let completed = 0;
-    const startLoader = (url) => {
-        const image = new Image();
-        image.onload = () => finish(url);
-        image.onerror = () => finish(url);
-        image.src = url;
-    };
-    const finish = (url) => {
-        const index = imageUrls.indexOf(url);
-        if (index >= 0 && !loaded[index]) {
-            loaded[index] = true;
-            completed++;
-            photosLoaded = completed;
-            updatePhotoLoading();
-        }
-        if (completed >= totalUploadedPhotos) {
-            photosReady = true;
-            const status = document.getElementById('photo-loading-status');
-            if (status) status.textContent = '照片准备完成';
-            const screen = document.getElementById('photo-loading-screen');
-            if (screen) screen.classList.add('hidden');
-            autoOpenLetter();
-        }
-    };
-    // 并发限制为 6，进度仍然按完成数量递增，避免全部图片同时抢占网络。
-    const CONCURRENCY = 6;
-    let cursor = 0;
-    const next = () => {
-        if (cursor >= imageUrls.length) return;
-        const url = imageUrls[cursor++];
-        const image = new Image();
-        image.onload = () => { finish(url); next(); };
-        image.onerror = () => { finish(url); next(); };
-        image.src = url;
-    };
-    for (let i = 0; i < Math.min(CONCURRENCY, imageUrls.length); i++) next();
-}
-
-function tryStartMusic() {
-    if (!audio) return;
-    audio.play().catch(() => {});
-}
-tryStartMusic();
-document.addEventListener('pointerdown', tryStartMusic, { once: true, passive: true });
-document.addEventListener('touchstart', tryStartMusic, { once: true, passive: true });
 
 btnLocation.addEventListener('click', () => {
     weatherText.innerHTML = "正在感应你的位置... 🛰️";
@@ -206,12 +72,11 @@ btnEnter.addEventListener('click', () => {
         mainUI.style.pointerEvents = 'none';
         
         audio.play().catch(e => console.log('Audio autoplay blocked:', e));
-        startAnimationWhenReady();
+        enterAnimation();
 
         controlsUI.classList.remove('hidden');
-        
+        uiFadeTimeout = setTimeout(() => { controlsUI.classList.add('hidden'); }, 3000);
         startQuotesCycle();
-        autoOpenLetter();
     }, 1000);
 });
 
@@ -242,60 +107,32 @@ const hotQuotes = [
 ];
 
 let quoteIndex = 0;
-let quotesCycleStarted = false;
 const quotesBox = document.getElementById('quotes-box');
 
 function startQuotesCycle() {
-    if (quotesCycleStarted) return;
-    quotesCycleStarted = true;
     quotesBox.innerText = hotQuotes[quoteIndex];
     setInterval(() => {
-        quoteIndex = (quoteIndex + 1) % hotQuotes.length;
-        quotesBox.innerText = hotQuotes[quoteIndex];
-    }, 6000);
+        quotesBox.classList.add('quotes-fade-out');
+        quotesBox.classList.remove('quotes-fade-in');
+        setTimeout(() => {
+            quoteIndex = (quoteIndex + 1) % hotQuotes.length;
+            quotesBox.innerText = hotQuotes[quoteIndex];
+            quotesBox.classList.remove('quotes-fade-out');
+            quotesBox.classList.add('quotes-fade-in');
+        }, 800); 
+    }, 6000); 
 }
 
-function showModal(id) {
+function showModal(id) { 
     const modal = document.getElementById(id);
-    if (!modal) return;
-    modal.style.display = 'block';
+    modal.style.display = 'block'; 
     modal.classList.remove('fade-out');
-    void modal.offsetWidth;
     modal.classList.add('fade-in');
-    if (id === 'letter-modal') {
+    
+    if(id === 'letter-modal' && !window.typewriterStarted) {
         startTypewriter();
+        window.typewriterStarted = true;
     }
-}
-
-let letterShouldOpen = false;
-let animationPending = false;
-function startAnimationWhenReady() {
-    animationPending = true;
-}
-function openLetterWhenReady() {
-    letterShouldOpen = true;
-    const tryOpen = () => {
-        if (!photosReady) {
-            setTimeout(tryOpen, 80);
-            return;
-        }
-        const screen = document.getElementById('photo-loading-screen');
-        if (screen && !screen.classList.contains('hidden')) {
-            setTimeout(tryOpen, 80);
-            return;
-        }
-        if (letterShouldOpen) {
-            letterShouldOpen = false;
-            requestAnimationFrame(() => showModal('letter-modal'));
-        }
-    };
-    tryOpen();
-}
-let letterAutoOpened = false;
-function autoOpenLetter() {
-    if (letterAutoOpened) return;
-    letterAutoOpened = true;
-    openLetterWhenReady();
 }
 
 function hideModal(id) { 
@@ -306,40 +143,45 @@ function hideModal(id) {
         if(modal.classList.contains('fade-out')) {
             modal.style.display = 'none';
         }
-        if (id === 'letter-modal' && animationPending) {
-            animationPending = false;
-            requestAnimationFrame(enterAnimation);
-        }
     }, 300); 
+}
+
+const calendarGrid = document.getElementById('calendar-grid');
+const memoryDisplay = document.getElementById('memory-display');
+for(let i=1; i<=35; i++) {
+    let div = document.createElement('div');
+    div.className = 'day-cell';
+    if(i <= 31) div.innerText = i;
+    if(i === 7 || i === 14 || i === 25) {
+        div.classList.add('active');
+        div.onclick = () => {
+            memoryDisplay.style.display = 'block';
+            document.getElementById('m-date').innerText = `2026年某月${i}日`;
+            document.getElementById('m-text').innerText = "不论天气如何变幻，那天你在身边，就是值得永远标记的日子。";
+        };
+    }
+    calendarGrid.appendChild(div);
 }
 
 const letterText = "谢谢你来爱一个这么糟糕的我。\n\n我的情绪像天气总是飘忽不定，往往最伤人的话都对着你说。其实我也知道自己这么子做会让你我渐行渐远，但我还是会有点小任性。有时候我的一些小脾气，只是想让你在意我，更喜欢我。\n\n我知道自己很糟糕，脾气很奇怪也没有那么好看，你总说拥有我很幸福，其实是我有你好幸运。\n\n好幸运遇到了一个这么好的你。你总是很厉害，可以注意到我的坏情绪，老是想尽办法逗我开心。有的时候明明很不开心，你和我说话的时候，我就把烦恼抛之脑后了。谢谢你给了我足够的安全感，有你真的好幸福……\n\n生活是乱糟糟的，有你一切都都很安稳。我喜欢安稳的生活，爱吃的东西我会吃一辈子，喜欢听的歌我也会执着的听上千万遍。\n\n你也一样，我一旦依赖上一个人就再也不会放手啦。我要和你一辈子。";
 
 let typeIndex = 0;
-let typewriterTimer = null;
-let typewriterFrame = null;
 function startTypewriter() {
     const box = document.getElementById('typewriter-content');
-    if (!box) return;
-    clearInterval(typewriterTimer);
-    if (typewriterFrame) cancelAnimationFrame(typewriterFrame);
-    typeIndex = 0;
-    box.classList.remove('done');
-    box.classList.add('typing');
-    box.textContent = '';
-    const letterBody = document.querySelector('#letter-modal .letter-bg');
-    typewriterTimer = setInterval(() => {
-        typeIndex += 2;
-        box.textContent = letterText.slice(0, typeIndex);
-        if (letterBody) letterBody.scrollTop = letterBody.scrollHeight;
-        if (typeIndex >= letterText.length) {
-            clearInterval(typewriterTimer);
-            typewriterTimer = null;
-            box.textContent = letterText;
-            box.classList.remove('typing');
+    box.innerHTML = "";
+    let timer = setInterval(() => {
+        if(typeIndex < letterText.length) {
+            let char = letterText.charAt(typeIndex);
+            box.innerHTML += (char === '\n') ? '<br>' : char;
+            typeIndex++;
+            if(box.parentElement) {
+                box.parentElement.scrollTop = box.parentElement.scrollHeight;
+            }
+        } else {
+            clearInterval(timer);
             box.classList.add('done');
         }
-    }, 45);
+    }, 120);
 }
 
 let camera, sceneWebGL, sceneCSS, rendererWebGL, rendererCSS;
@@ -353,9 +195,7 @@ const totalUploadedPhotos = 120;
 
 let particles;
 
-initShapeControls();
 init();
-preloadAllPhotos();
 animate();
 
 function init() {
@@ -363,7 +203,7 @@ function init() {
     camera.position.z = 2800; 
     
     sceneWebGL = new THREE.Scene();
-    const particleCount = window.innerWidth <= 768 ? 1400 : 2400;
+    const particleCount = 3500;
     const geometry = new THREE.BufferGeometry();
     const positions = new Float32Array(particleCount * 3);
     for(let i=0; i<particleCount*3; i++) {
@@ -394,7 +234,7 @@ function init() {
     particles = new THREE.Points(geometry, pMaterial);
     sceneWebGL.add(particles);
 
-    rendererWebGL = new THREE.WebGLRenderer({ alpha: true, antialias: window.devicePixelRatio < 2 });
+    rendererWebGL = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     rendererWebGL.setSize( window.innerWidth, window.innerHeight );
     document.getElementById('webgl-container').appendChild( rendererWebGL.domElement );
 
@@ -426,15 +266,6 @@ function init() {
         objectCSS.position.z = 0;
         sceneCSS.add( objectCSS );
         objects.push( objectCSS );
-
-        // 背面面板：与正面共享同一照片，绕 Y 轴旋转 180 度，爱心旋转时背面不再空白。
-        const backElement = document.createElement( 'div' );
-        backElement.className = 'element element-back';
-        backElement.style.backgroundImage = `url('assets/images/${imgIndex}.webp')`;
-        const backCSS = new THREE.CSS3DObject( backElement );
-        backCSS.rotation.y = Math.PI;
-        objectCSS.add( backCSS );
-        objectCSS.userData.backElement = backElement;
     }
 
     const scale = 45; 
@@ -499,47 +330,57 @@ function init() {
 
     window.addEventListener( 'resize', onWindowResize );
 
-    // 形状切换由长按滑选模式统一处理（initShapeControls）。
+    document.getElementById('btn-heart').addEventListener('click', () => transform(targets.heart, 1500));
+    document.getElementById('btn-sphere').addEventListener('click', () => transform(targets.sphere, 1500));
+    document.getElementById('btn-helix').addEventListener('click', () => transform(targets.helix, 1500));
+    document.getElementById('btn-grid').addEventListener('click', () => transform(targets.grid, 1500));
 }
 
 function enterAnimation() {
     TWEEN.removeAll();
-    const duration = 2000;
+    const flyDuration = 1000;
+    
     for (let i = 0; i < objects.length; i++) {
-        const object = objects[i];
-        const target = targets.heart[i];
-        object.visible = true;
-        object.scale.set(0.2, 0.2, 0.2);
-        // 图片在加载页阶段已全部预加载并常驻，动画直接使用原图。
-        // 从外圈螺旋进入：半径随进度缩小，同时自转，最后停在心形目标上。
-        const angle = Math.random() * Math.PI * 2;
-        const radius = 5000 + Math.random() * 2500;
-        object.position.set(
-            Math.cos(angle) * radius,
-            (Math.random() - 0.5) * 2600,
-            Math.sin(angle) * radius
-        );
-        object.rotation.set(Math.random() * Math.PI * 2, Math.random() * Math.PI * 2, Math.random() * Math.PI);
-        const delay = (i % 40) * 18 + Math.random() * 120;
-        new TWEEN.Tween(object.position)
-            .to({ x: target.position.x, y: target.position.y, z: target.position.z }, duration)
-            .easing(TWEEN.Easing.Exponential.InOut)
-            .delay(delay)
-            .start();
-        new TWEEN.Tween(object.rotation)
-            .to({ x: target.rotation.x, y: target.rotation.y, z: target.rotation.z }, duration)
-            .easing(TWEEN.Easing.Exponential.InOut)
-            .delay(delay)
-            .start();
-        new TWEEN.Tween(object.scale)
-            .to({ x: 1, y: 1, z: 1 }, duration)
-            .easing(TWEEN.Easing.Back.Out)
-            .delay(delay)
-            .start();
-    }
-    // 原图已常驻，动画结束后无需任何替换。
-}
+        const obj = objects[i];
+        const targetHeart = targets.heart[i];
+        
+        obj.position.set(4000 + Math.random() * 2000, (Math.random() - 0.5) * 2000, (Math.random() - 0.5) * 2000);
+        obj.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
 
+        const randomX = (Math.random() - 0.5) * 1500;
+        const randomY = (Math.random() - 0.5) * 1500;
+        const randomZ = (Math.random() - 0.5) * 1500;
+
+        const delay1 = i * 20; 
+
+        const tweenPos1 = new TWEEN.Tween(obj.position)
+            .to({ x: randomX, y: randomY, z: randomZ }, flyDuration)
+            .easing(TWEEN.Easing.Cubic.Out)
+            .delay(delay1);
+
+        const tweenRot1 = new TWEEN.Tween(obj.rotation)
+            .to({ x: Math.random() * Math.PI, y: Math.random() * Math.PI, z: 0 }, flyDuration)
+            .delay(delay1);
+
+        const delay2 = 3200 + Math.random() * 800; 
+
+        const tweenPos2 = new TWEEN.Tween(obj.position)
+            .to({ x: targetHeart.position.x, y: targetHeart.position.y, z: targetHeart.position.z }, 2000)
+            .easing(TWEEN.Easing.Exponential.InOut)
+            .delay(delay2);
+
+        const tweenRot2 = new TWEEN.Tween(obj.rotation)
+            .to({ x: targetHeart.rotation.x, y: targetHeart.rotation.y, z: targetHeart.rotation.z }, 2000)
+            .easing(TWEEN.Easing.Exponential.InOut)
+            .delay(delay2);
+
+        tweenPos1.start();
+        tweenRot1.start();
+        tweenPos2.start();
+        tweenRot2.start();
+    }
+    new TWEEN.Tween(this).to({}, 6000).onUpdate(render).start();
+}
 
 function transform( targets, duration ) {
     TWEEN.removeAll();
@@ -595,11 +436,24 @@ if (!isFirstTime) {
         document.getElementById('main-ui').style.opacity = '1';
         document.getElementById('main-ui').style.pointerEvents = 'none';
         
-        startAnimationWhenReady();
+        enterAnimation();
         startQuotesCycle();
-        autoOpenLetter();
 
-        controlsUI.classList.remove('hidden');
+        const audioTip = document.createElement('div');
+        audioTip.innerText = "点击屏幕播放我们的回忆原声 ✨";
+        audioTip.style.cssText = "position:absolute; top:20%; left:50%; transform:translateX(-50%); z-index:100; color:#ff8ca3; font-family:'ZCOOL KuaiLe', sans-serif; font-size:16px; text-shadow:0 2px 5px rgba(0,0,0,0.5); pointer-events:none; animation: blink 2s infinite;";
+        document.body.appendChild(audioTip);
+
+        const playMusicOnTouch = () => {
+            audio.play().catch(e => console.log(e));
+            if(audioTip) audioTip.remove();
+            document.removeEventListener('click', playMusicOnTouch);
+            document.removeEventListener('touchstart', playMusicOnTouch);
+        };
+        document.addEventListener('click', playMusicOnTouch);
+        document.addEventListener('touchstart', playMusicOnTouch, {passive:true});
         
+        controlsUI.classList.remove('hidden');
+        uiFadeTimeout = setTimeout(() => { controlsUI.classList.add('hidden'); }, 3000);
     }, 100);
 }
