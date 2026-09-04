@@ -232,6 +232,7 @@ const totalUploadedPhotos = 120;
 let particles;
 let trunkBasePos, trunkTargetPos, trunkPoints, trunkTargetCol;
 let ferrisBasePos, ferrisTargetPos, ferrisPoints, ferrisTargetCol;
+const isFirstTime = !localStorage.getItem('universeVisited_v14');
 
 init();
 preloadAllPhotos();
@@ -674,7 +675,7 @@ function animate() {
     }
     
     controls.update();
-    if (currentShape === 'ferris' && !shapeBusy) {
+    if (SHAPE_NAMES[ currentShapeIndex ] === 'ferris' && !shapeBusy) {
         const d = 0.005;
         const c = Math.cos(d), s = Math.sin(d);
         for (let i = 0; i < objects.length; i++) {
@@ -693,8 +694,6 @@ function render() {
     rendererWebGL.render( sceneWebGL, camera );
     rendererCSS.render( sceneCSS, camera );
 }
-
-const isFirstTime = !localStorage.getItem('universeVisited_v14');
 
 if (!isFirstTime) {
     document.getElementById('welcome-screen').style.display = 'none';
