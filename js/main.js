@@ -59,6 +59,7 @@ function preloadAllPhotos() {
                 if (status) status.textContent = '照片准备完成';
                 const screen = document.getElementById('photo-loading-screen');
                 if (screen) screen.classList.add('hidden');
+                autoOpenLetter();
             }
         });
     });
@@ -122,7 +123,7 @@ btnEnter.addEventListener('click', () => {
         controlsUI.classList.remove('hidden');
         uiFadeTimeout = setTimeout(() => { controlsUI.classList.add('hidden'); }, 3000);
         startQuotesCycle();
-        openLetterWhenReady();
+        autoOpenLetter();
     }, 1000);
 });
 
@@ -153,9 +154,12 @@ const hotQuotes = [
 ];
 
 let quoteIndex = 0;
+let quotesCycleStarted = false;
 const quotesBox = document.getElementById('quotes-box');
 
 function startQuotesCycle() {
+    if (quotesCycleStarted) return;
+    quotesCycleStarted = true;
     quotesBox.innerText = hotQuotes[quoteIndex];
     setInterval(() => {
         quotesBox.classList.add('quotes-fade-out');
@@ -200,6 +204,12 @@ function openLetterWhenReady() {
         }
     };
     tryOpen();
+}
+let letterAutoOpened = false;
+function autoOpenLetter() {
+    if (letterAutoOpened) return;
+    letterAutoOpened = true;
+    openLetterWhenReady();
 }
 
 function hideModal(id) { 
@@ -482,7 +492,7 @@ if (!isFirstTime) {
         
         enterAnimation();
         startQuotesCycle();
-        openLetterWhenReady();
+        autoOpenLetter();
 
         const audioTip = document.createElement('div');
         audioTip.innerText = "点击屏幕播放我们的回忆原声 ✨";
