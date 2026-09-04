@@ -825,14 +825,16 @@ async function playMessage() {
     await moveCameraToText();
     await wait(400);
     for (let i = 0; i < MESSAGE_TEXT.length; i++) {
-        letterOverlay.style.opacity = '1';
         // 同时显示 3 个图案（星星 + 爱心 + 雪花）
         await showDecor(combinePatterns([buildStarPattern, buildHeartPattern, buildSnowflakePattern]));
+        letterOverlay.textContent = '';
+        letterOverlay.style.opacity = '1';   // 淡入（CSS transition）
         await typeMessage(MESSAGE_TEXT[i]);
         await wait(5200);
         if (i < MESSAGE_TEXT.length - 1) {
-            await fadeMessageUp();
-            await wait(200);
+            await fadeMessageUp();            // 淡出
+            letterOverlay.textContent = '';   // 淡出后清空，避免闪现旧字
+            await wait(300);
         }
     }
     const blackout = document.getElementById('blackout');
