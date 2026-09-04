@@ -847,6 +847,8 @@ async function playMessage() {
         tourTimer = null;
         moveTimer = null;
         tourPlaying = false;
+        controls.enabled = true;
+        controls.autoRotate = true;
     }
     shapeBusy = false;
     TWEEN.removeAll();
@@ -871,8 +873,22 @@ async function playMessage() {
         const raw = ((performance.now() - msgTourT0) / 14000) % 1;
         const e = raw < 0.5 ? 4*raw*raw*raw : 1 - Math.pow(-2*raw+2, 3)/2;
         const t = e * Math.PI * 2;
-        // 镜头竖着围绕照片圈，准心对准整片照片，缓慢扫动展示
-        camera.position.set(Math.cos(t)*2050, Math.sin(t)*2050, 0);
+        // 电影级运镜：推近 → 竖着环绕展示 → 拉远
+        const p = raw;
+        if (p < 0.25) {
+            const q = p / 0.25;
+            const r = 3000 - q * 950;
+            const ang = q * Math.PI * 1.5;
+            camera.position.set(Math.cos(ang)*r, Math.sin(ang)*r, 0);
+        } else if (p < 0.75) {
+            const tt = ((p - 0.25) / 0.5) * Math.PI * 2;
+            camera.position.set(Math.cos(tt)*2050, Math.sin(tt)*2050, Math.sin(tt*2)*160);
+        } else {
+            const q = (p - 0.75) / 0.25;
+            const r = 2050 + q * 950;
+            const ang = Math.PI*1.5 + q * Math.PI*1.5;
+            camera.position.set(Math.cos(ang)*r, Math.sin(ang)*r, Math.sin(q*Math.PI)*300);
+        }
         controls.target.set(0, 0, 0);
         camera.lookAt(controls.target);
     }, 16);
