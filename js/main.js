@@ -223,7 +223,7 @@ function startTypewriter() {
 let camera, sceneWebGL, sceneCSS, rendererWebGL, rendererCSS;
 let controls;
 const objects = [];
-const targets = { heart: [], tree: [], galaxy: [], rose: [], firework: [], infinity: [], vortex: [] };
+const targets = { heart: [], tree: [], ferris: [], galaxy: [], rose: [], firework: [], infinity: [], vortex: [] };
 
 // 关键修改点：设定为 120 张
 const photoCount = 120; 
@@ -231,6 +231,7 @@ const totalUploadedPhotos = 120;
 
 let particles;
 let trunkBasePos, trunkTargetPos, trunkPoints, trunkTargetCol;
+let ferrisBasePos, ferrisTargetPos, ferrisPoints, ferrisTargetCol;
 
 init();
 preloadAllPhotos();
@@ -325,6 +326,52 @@ function init() {
         blending: THREE.AdditiveBlending, depthWrite: false }));
     sceneWebGL.add(trunkPoints);
 
+    // 摩天轮骨架粒子：轮毂 + 轮辐 + 外圈圆环（XY 平面，绕 Z 轴滚动）
+    const ferrisCount = 560;
+    ferrisBasePos = new Float32Array(ferrisCount * 3);
+    ferrisTargetPos = new Float32Array(ferrisCount * 3);
+    ferrisTargetCol = new Float32Array(ferrisCount * 3);
+    let fi = 0;
+    const putFerris = (x, y, z, r, g, b) => {
+        ferrisBasePos[fi*3] = (Math.random() - .5) * 5000;
+        ferrisBasePos[fi*3+1] = (Math.random() - .5) * 5000;
+        ferrisBasePos[fi*3+2] = (Math.random() - .5) * 5000;
+        ferrisTargetPos[fi*3] = x;
+        ferrisTargetPos[fi*3+1] = y;
+        ferrisTargetPos[fi*3+2] = z;
+        ferrisTargetCol[fi*3] = r; ferrisTargetCol[fi*3+1] = g; ferrisTargetCol[fi*3+2] = b;
+        fi++;
+    };
+    // 轮毂
+    for (let k = 0; k < 60; k++) {
+        const a = Math.random() * Math.PI * 2;
+        const rr = Math.random() * 120;
+        putFerris(Math.cos(a)*rr, Math.sin(a)*rr, (Math.random()-.5)*20, 1, .92, .6);
+    }
+    // 轮辐：12 条从轮毂伸向外圈
+    for (let spoke = 0; spoke < 12; spoke++) {
+        const a = spoke * (Math.PI * 2 / 12);
+        for (let s = 0; s < 15; s++) {
+            const rr = 130 + s * 52;
+            putFerris(Math.cos(a)*rr, Math.sin(a)*rr, (Math.random()-.5)*16, .9, .8, .55);
+        }
+    }
+    // 外圈圆环
+    for (let k = 0; k < 300; k++) {
+        const a = Math.random() * Math.PI * 2;
+        putFerris(Math.cos(a)*950, Math.sin(a)*950, (Math.random()-.5)*22, 1, .95, .7);
+    }
+    const ferrisGeo = new THREE.BufferGeometry();
+    const ferrisInit = new Float32Array(ferrisBasePos);
+    ferrisGeo.setAttribute('position', new THREE.BufferAttribute(ferrisInit, 3));
+    const ferrisColInit = new Float32Array(ferrisCount * 3);
+    for (let i = 0; i < ferrisCount * 3; i++) ferrisColInit[i] = 1;
+    ferrisGeo.setAttribute('color', new THREE.BufferAttribute(ferrisColInit, 3));
+    ferrisPoints = new THREE.Points(ferrisGeo, new THREE.PointsMaterial({
+        size: 40, map: texture, vertexColors: true, transparent: true, opacity: .95,
+        blending: THREE.AdditiveBlending, depthWrite: false }));
+    sceneWebGL.add(ferrisPoints);
+
     rendererWebGL = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     rendererWebGL.setSize( window.innerWidth, window.innerHeight );
     document.getElementById('webgl-container').appendChild( rendererWebGL.domElement );
@@ -383,6 +430,15 @@ function init() {
         object.position.set( Math.cos( angle ) * r, y, Math.sin( angle ) * r );
         object.lookAt( 0, y, 0 );
         targets.tree.push( object );
+    }
+
+    // 摩天轮：照片车仓沿垂直大圆环，面向圆心
+    for ( let i = 0; i < objects.length; i ++ ) {
+        const a = ( i / objects.length ) * Math.PI * 2;
+        const object = new THREE.Object3D();
+        object.position.set( Math.cos( a ) * 950, Math.sin( a ) * 950, 0 );
+        object.lookAt( 0, 0, 0 );
+        targets.ferris.push( object );
     }
 
     // 玫瑰：五叶玫瑰曲线，照片沿花瓣
@@ -506,7 +562,7 @@ function enterAnimation() {
     new TWEEN.Tween(this).to({}, 6000).onUpdate(render).start();
 }
 
-const SHAPE_NAMES = [ 'heart', 'tree', 'galaxy', 'rose', 'firework', 'infinity', 'vortex' ];
+const SHAPE_NAMES = [ 'heart', 'tree', 'ferris', 'galaxy', 'rose', 'firework', 'infinity', 'vortex' ];
 let currentShapeIndex = 0;
 let shapeBusy = false;
 function animateTrunk(toTree) {
@@ -531,6 +587,27 @@ function animateTrunk(toTree) {
         })
         .start();
 }
+function animateFerris(toFerris) {
+    const geo = ferrisPoints.geometry;
+    const posAttr = geo.attributes.position;
+    const colAttr = geo.attributes.color;
+    const state = { p: toFerris ? 0 : 1 };
+    new TWEEN.Tween(state)
+        .to({ p: toFerris ? 1 : 0 }, 1600)
+        .easing(TWEEN.Easing.Cubic.InOut)
+        .onUpdate(() => {
+            const p = state.p;
+            for (let i = 0; i < ferrisBasePos.length; i++) {
+                posAttr.array[i] = ferrisBasePos[i] * (1 - p) + ferrisTargetPos[i] * p;
+            }
+            posAttr.needsUpdate = true;
+            for (let i = 0; i < ferrisTargetCol.length; i++) {
+                colAttr.array[i] = 1 - (1 - ferrisTargetCol[i]) * p;
+            }
+            colAttr.needsUpdate = true;
+        })
+        .start();
+}
 function switchShape() {
     if (shapeBusy) return;
     shapeBusy = true;
@@ -538,8 +615,9 @@ function switchShape() {
     currentShapeIndex = ( currentShapeIndex + 1 ) % SHAPE_NAMES.length;
     const name = SHAPE_NAMES[ currentShapeIndex ];
     transform( targets[ name ], 1800 );
-    if ( name === 'tree' ) animateTrunk( true );
-    else animateTrunk( false );
+    if ( name === 'tree' ) { animateTrunk( true ); animateFerris( false ); }
+    else if ( name === 'ferris' ) { animateTrunk( false ); animateFerris( true ); }
+    else { animateTrunk( false ); animateFerris( false ); }
 }
 let lastTapTime = 0, lastTapX = 0, lastTapY = 0;
 let suppressPhotoClick = false;
@@ -595,7 +673,19 @@ function animate() {
         particles.rotation.x += 0.0004;
     }
     
-    controls.update(); 
+    controls.update();
+    if (currentShape === 'ferris' && !shapeBusy) {
+        const d = 0.005;
+        const c = Math.cos(d), s = Math.sin(d);
+        for (let i = 0; i < objects.length; i++) {
+            const o = objects[i];
+            const x = o.position.x, y = o.position.y;
+            o.position.x = x * c - y * s;
+            o.position.y = x * s + y * c;
+            o.rotation.z += d;
+        }
+        ferrisPoints.rotation.z += d;
+    }
     render();
 }
 
