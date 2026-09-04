@@ -379,7 +379,7 @@ function init() {
 
     // 文字（CSS3D，直接显示在空白区）
     letterTextEl = document.createElement('div');
-    letterTextEl.style.cssText = 'width:680px;height:920px;display:flex;align-items:flex-start;justify-content:center;';
+    letterTextEl.style.cssText = 'width:680px;height:920px;display:flex;align-items:center;justify-content:center;';
     letterInnerEl = document.createElement('div');
     letterInnerEl.style.cssText = 'width:100%;height:auto;color:#fff;font:19px/2.2 "ZCOOL KuaiLe","PingFang SC",sans-serif;text-align:left;letter-spacing:1px;white-space:pre-wrap;overflow-wrap:break-word;text-shadow:0 0 8px rgba(255,255,255,.5);transition:opacity .5s ease,transform .5s ease;';
     letterTextEl.appendChild(letterInnerEl);
@@ -693,7 +693,13 @@ async function playMessage() {
     letterObj.visible = false;
     letterTextEl.style.display = 'none';
     await wait(400);
-    transform(targets[SHAPE_NAMES[prevShape]], 1600);
+    const restoreName = SHAPE_NAMES[prevShape];
+    transform(targets[restoreName], 1600);
+    // 强制重设树干/摩天轮粒子，避免残留
+    trunkState = restoreName === 'tree' ? 0 : 1;
+    animateTrunk(restoreName === 'tree');
+    ferrisState = restoreName === 'ferris' ? 0 : 1;
+    animateFerris(restoreName === 'ferris');
     if (blackout) blackout.classList.remove('show');
     controls.autoRotate = prevAutoRotate;
     controls.enabled = prevEnabled;
