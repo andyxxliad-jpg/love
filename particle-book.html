@@ -12,7 +12,7 @@
 <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { width: 100%; height: 100%; overflow: hidden; background: #03040a; color: #fff;
+html, body { width: 100%; height: 100%; overflow: hidden; background: #05030c; color: #fff;
   font-family: 'ZCOOL KuaiLe', 'PingFang SC', sans-serif; touch-action: none; }
 #webgl { position: fixed; inset: 0; z-index: 0; }
 #css { position: absolute; inset: 0; z-index: 1; }
@@ -23,9 +23,9 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #03040a; c
 #page-ind { position: absolute; top: 4vh; right: 4vw; font-size: 14px; color: #e8ecff;
   background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.25); border-radius: 20px; padding: 6px 14px; }
 #hint { position: absolute; bottom: 3.5vh; left: 0; right: 0; text-align: center; font-size: 13px; color: #cfd6ff; opacity: .65; }
-.book-paper { position: relative; background: #1c1322; border-radius: 4px 10px 10px 4px;
-  box-shadow: inset 0 0 18px rgba(120,90,140,.25), 0 0 10px rgba(0,0,0,.5); }
-.book-paper.right { border-radius: 10px 4px 4px 10px; }
+.book-domtext { position: relative; display: none; background: transparent; color: #fff;
+  padding: 20px 26px; font: 15px/1.9 'ZCOOL KuaiLe', 'PingFang SC', sans-serif;
+  letter-spacing: 1px; text-shadow: 0 0 8px rgba(255,255,255,.7); white-space: pre-wrap; }
 </style>
 </head>
 <body>
@@ -37,27 +37,24 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #03040a; c
   <div id="hint">点击屏幕左右两侧翻页 · 拖动旋转书本</div>
 </div>
 <script>
-window.onerror = function(msg, src, line) {
-  console.error(msg, line);
-};
+window.onerror = function(msg, src, line) { console.error(msg, line); };
 (() => {
 'use strict';
 const PAGE_W = 340, PAGE_H = 460;
 const TOTAL_PAGES = 5;
+const MAX_TEXT_PARTICLES = 5000;
 let pageIndex = 0;
 let busy = false;
 
-let sceneWebGL, sceneCSS, camera, rendererWebGL, rendererCSS, controls, particles;
-let cssBookGroup, webglBookGroup, leftPivot, rightPivot, leftStackGroup, rightStackGroup;
-let framePoints, textPoints, starPoints;
+let sceneWebGL, sceneCSS, camera, rendererWebGL, rendererCSS, controls;
+let cssBookGroup, webglBookGroup;
+let framePoints, textPoints, starPoints, mistPoints, domText;
 let frameBase = [], framePhase = [], frameAmp = [];
-const stackItems = [];
 
 const $ = id => document.getElementById(id);
 const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
 const ease = t => t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2;
 
-// 5 段文字
 const PAGES_TEXT = [
   '我以前确实是一个很烂的人，但是遇到你之后，我发现我和以前不一样了。',
   '我想给你我的全部，我想我的生活里都是你。我可以为了你改掉我的所有不好，我真的好喜欢你。',
@@ -66,7 +63,7 @@ const PAGES_TEXT = [
   '有时候我也不知道我该怎么办，我只是想和你好好谈恋爱，我只是想让你是真的喜欢我，其他的我不奢求。'
 ];
 
-// ---------- 白色粒子书结构 ----------
+// ---------- 结构粒子 ----------
 function buildFrameParticles() {
   const pos = [], col = [];
   const jit = () => (Math.random()-.5)*9;
@@ -108,9 +105,6 @@ function buildFrameParticles() {
 }
 
 // ---------- 文字 → 粒子 ----------
-const MAX_TEXT_PARTICLES = 4200;
-let textTargets = [];        // 当前文字粒子目标（局部坐标，左页区域）
-let textCurrent = [];        // 当前显示位置
 function wrapText(text, maxChars) {
   const lines = [];
   let line = '';
@@ -122,7 +116,6 @@ function wrapText(text, maxChars) {
   return lines;
 }
 function buildTextParticles(text) {
-  // 画布排版，采样像素成粒子
   const CW = 560, CH = 760;
   const canvas = document.createElement('canvas');
   canvas.width = CW; canvas.height = CH;
@@ -130,34 +123,27 @@ function buildTextParticles(text) {
   ctx.fillStyle = '#000';
   ctx.fillRect(0,0,CW,CH);
   ctx.fillStyle = '#fff';
-  ctx.font = 'bold 46px "PingFang SC", "Noto Sans SC", sans-serif';
+  ctx.font = 'bold 46px "PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif';
+  ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const lines = wrapText(text, 8);
   const lineH = 78;
   const startY = CH/2 - (lines.length-1)*lineH/2;
-  lines.forEach((line, i) => {
-    ctx.fillText(line, CW/2, startY + i*lineH);
-  });
+  lines.forEach((line, i) => ctx.fillText(line, CW/2, startY + i*lineH));
   const data = ctx.getImageData(0,0,CW,CH).data;
   const pts = [];
-  const step = 2;
-  for (let y = 0; y < CH; y += step) for (let x = 0; x < CW; x += step) {
+  for (let y = 0; y < CH; y += 2) for (let x = 0; x < CW; x += 2) {
     const i = (y*CW+x)*4;
-    // 只取白色文字笔画（黑底不算）
     if (data[i] > 150 && data[i+1] > 150 && data[i+2] > 150) {
-      // 映射到左页区域（x ∈ [-PAGE_W, 0]）
       const px = (x/CW - .5) * (PAGE_W - 30);
       const py = (.5 - y/CH) * (PAGE_H - 30);
       pts.push(px - PAGE_W/2, py, (Math.random()-.5)*3);
     }
   }
   if (pts.length/3 > MAX_TEXT_PARTICLES) {
-    // 均匀抽稀
-    const keep = MAX_TEXT_PARTICLES;
-    const total = pts.length/3;
-    const ratio = keep/total;
+    const ratio = MAX_TEXT_PARTICLES/(pts.length/3);
     const picked = [];
-    for (let i = 0; i < total; i++) {
+    for (let i = 0; i < pts.length/3; i++) {
       if (Math.random() < ratio) picked.push(pts[i*3], pts[i*3+1], pts[i*3+2]);
     }
     return picked;
@@ -177,12 +163,6 @@ function cssObject(el, x, y, z) {
   o.position.set(x, y, z);
   return o;
 }
-function makeStackBoard(right) {
-  const group = new THREE.Group();
-  const paper = cssObject(makeDiv(right ? 'book-paper right' : 'book-paper', PAGE_W, PAGE_H), 0, 0, 0);
-  group.add(paper);
-  return { group, paper };
-}
 
 // ---------- 初始化 ----------
 function init() {
@@ -191,57 +171,70 @@ function init() {
   camera.lookAt(0, 0, 0);
 
   sceneWebGL = new THREE.Scene();
-  // 星空
-  const n = innerWidth <= 768 ? 1200 : 2000;
+  // 星空背景（加密加亮）
+  const n = 2600;
   const sGeo = new THREE.BufferGeometry();
   const sp = new Float32Array(n*3), sc = new Float32Array(n*3);
   for (let i = 0; i < n; i++) {
-    const r = 2600 + Math.random()*3600;
+    const r = 2200 + Math.random()*4200;
     const t = Math.random()*Math.PI*2, p = Math.acos(2*Math.random()-1);
     sp[i*3] = r*Math.sin(p)*Math.cos(t);
     sp[i*3+1] = r*Math.sin(p)*Math.sin(t);
     sp[i*3+2] = r*Math.cos(p);
-    const b = .25+Math.random()*.75;
+    const b = .35+Math.random()*.65;
     sc[i*3]=b; sc[i*3+1]=b; sc[i*3+2]=b;
   }
   sGeo.setAttribute('position', new THREE.BufferAttribute(sp,3));
   sGeo.setAttribute('color', new THREE.BufferAttribute(sc,3));
   starPoints = new THREE.Points(sGeo, new THREE.PointsMaterial({
-    size: 2.4, vertexColors: true, transparent: true, opacity: .9,
+    size: 3.2, vertexColors: true, transparent: true, opacity: .95,
     blending: THREE.AdditiveBlending, depthWrite: false }));
   sceneWebGL.add(starPoints);
+  // 近景漂浮光点
+  const mN = 700;
+  const mGeo = new THREE.BufferGeometry();
+  const mp = new Float32Array(mN*3), mc = new Float32Array(mN*3);
+  for (let i = 0; i < mN; i++) {
+    mp[i*3] = (Math.random()-.5)*3600;
+    mp[i*3+1] = (Math.random()-.5)*2600;
+    mp[i*3+2] = (Math.random()-.5)*1800;
+    const b = .3+Math.random()*.5;
+    mc[i*3]=b; mc[i*3+1]=b; mc[i*3+2]=b+Math.random()*.2;
+  }
+  mGeo.setAttribute('position', new THREE.BufferAttribute(mp,3));
+  mGeo.setAttribute('color', new THREE.BufferAttribute(mc,3));
+  mistPoints = new THREE.Points(mGeo, new THREE.PointsMaterial({
+    size: 5, vertexColors: true, transparent: true, opacity: .6,
+    blending: THREE.AdditiveBlending, depthWrite: false }));
+  sceneWebGL.add(mistPoints);
 
-  // 粒子书结构（挂在 WebGL 书本组，随书本缩放姿态）
+  // 结构粒子 + 文字粒子挂 WebGL 书本组
   const fp = buildFrameParticles();
   frameBase = fp.pos;
   const fGeo = new THREE.BufferGeometry();
   const fInit = new Float32Array(fp.pos.length);
-  for (let i = 0; i < fp.pos.length; i++) {
-    fInit[i] = fp.pos[i] + (Math.random()-.5)*2200;
-  }
+  for (let i = 0; i < fp.pos.length; i++) fInit[i] = fp.pos[i] + (Math.random()-.5)*2200;
   fGeo.setAttribute('position', new THREE.BufferAttribute(fInit,3));
   fGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(fp.col),3));
   framePoints = new THREE.Points(fGeo, new THREE.PointsMaterial({
-    size: 4.2, vertexColors: true, transparent: true, opacity: .9,
+    size: 4.6, vertexColors: true, transparent: true, opacity: .9,
     blending: THREE.AdditiveBlending, depthWrite: false }));
 
-  // 文字粒子（左页）
   const tGeo = new THREE.BufferGeometry();
   const tPos = new Float32Array(MAX_TEXT_PARTICLES*3);
   const tCol = new Float32Array(MAX_TEXT_PARTICLES*3);
   for (let i = 0; i < MAX_TEXT_PARTICLES*3; i += 3) {
-    tPos[i] = (Math.random()-.5)*3000;
-    tPos[i+1] = (Math.random()-.5)*3000;
+    tPos[i] = (Math.random()-.5)*3600;
+    tPos[i+1] = (Math.random()-.5)*2600;
     tPos[i+2] = (Math.random()-.5)*2000;
   }
   for (let i = 0; i < MAX_TEXT_PARTICLES; i++) tCol[i*3] = tCol[i*3+1] = tCol[i*3+2] = 1;
   tGeo.setAttribute('position', new THREE.BufferAttribute(tPos,3));
   tGeo.setAttribute('color', new THREE.BufferAttribute(tCol,3));
   textPoints = new THREE.Points(tGeo, new THREE.PointsMaterial({
-    size: 4.6, vertexColors: true, transparent: true, opacity: 1,
+    size: 5, vertexColors: true, transparent: true, opacity: 1,
     blending: THREE.AdditiveBlending, depthWrite: false }));
 
-  // WebGL 书本组（粒子挂这里，与 CSS3D 书本保持相同变换）
   webglBookGroup = new THREE.Group();
   webglBookGroup.rotation.x = -0.12;
   webglBookGroup.add(framePoints, textPoints);
@@ -251,31 +244,14 @@ function init() {
   rendererWebGL.setSize(innerWidth, innerHeight);
   $('webgl').appendChild(rendererWebGL.domElement);
 
-  // 书本 CSS3D（纸板堆）
+  // CSS3D 书本（只保留 DOM 文字兜底层）
   sceneCSS = new THREE.Scene();
   cssBookGroup = new THREE.Group();
   cssBookGroup.rotation.x = -0.12;
   sceneCSS.add(cssBookGroup);
 
-  leftPivot = new THREE.Group();
-  rightPivot = new THREE.Group();
-  leftPivot.rotation.order = 'YXZ';
-  rightPivot.rotation.order = 'YXZ';
-  cssBookGroup.add(leftPivot, rightPivot);
-
-  leftStackGroup = new THREE.Group();
-  rightStackGroup = new THREE.Group();
-  cssBookGroup.add(leftStackGroup, rightStackGroup);
-  for (let k = 0; k < TOTAL_PAGES-1; k++) {
-    const sL = makeStackBoard(false);
-    sL.group.position.set(-PAGE_W/2 - (k+1)*3, 0, -6 - k*6);
-    leftStackGroup.add(sL.group);
-    const sR = makeStackBoard(true);
-    sR.group.position.set(PAGE_W/2 + (k+1)*3, 0, -6 - k*6);
-    rightStackGroup.add(sR.group);
-    stackItems.push({ left: sL, right: sR, k });
-  }
-  layoutStacks();
+  domText = makeDiv('book-domtext', PAGE_W-40, PAGE_H-40);
+  cssBookGroup.add(cssObject(domText, -PAGE_W/2, 0, 6));
 
   rendererCSS = new THREE.CSS3DRenderer();
   rendererCSS.setSize(innerWidth, innerHeight);
@@ -311,25 +287,32 @@ function fitBook() {
   webglBookGroup.scale.set(s, s, s);
 }
 function layoutStacks() {
-  stackItems.forEach((item, k) => {
-    item.left.group.visible = k < pageIndex;
-    item.right.group.visible = k < (TOTAL_PAGES-1-pageIndex);
-  });
+  // 无纸板堆，翻页由粒子散开→汇聚完成
 }
 
-// ---------- 动画工具 ----------
+// ---------- 动画（rAF + 定时器双驱动） ----------
 function animateValue(duration, onUpdate, onDone) {
   const t0 = performance.now();
-  const timer = setInterval(() => {
+  let done = false;
+  const finish = () => { if (!done) { done = true; if (onDone) onDone(); } };
+  function rStep() {
+    if (done) return;
     const p = clamp((performance.now()-t0)/duration, 0, 1);
     onUpdate(ease(p));
-    if (p >= 1) { clearInterval(timer); if (onDone) onDone(); }
-  }, 16);
+    if (p >= 1) finish();
+    else requestAnimationFrame(rStep);
+  }
+  requestAnimationFrame(rStep);
+  const timer = setInterval(() => {
+    if (done) { clearInterval(timer); return; }
+    const p = clamp((performance.now()-t0)/duration, 0, 1);
+    onUpdate(ease(p));
+    if (p >= 1) finish();
+  }, 100);
 }
 
-// ---------- 文字粒子动画 ----------
+// ---------- 文字动画 ----------
 function scatterOffsets() {
-  // 每个粒子一个随机散开方向
   const arr = [];
   for (let i = 0; i < MAX_TEXT_PARTICLES; i++) {
     const a = Math.random()*Math.PI*2;
@@ -338,33 +321,40 @@ function scatterOffsets() {
   }
   return arr;
 }
-async function scatterText() {
-  // 当前文字散开
+function scatterText(onDone) {
   const tPos = textPoints.geometry.attributes.position;
-  const from = textCurrent.slice();
+  const from = tPos.array.slice();
   const scatter = scatterOffsets();
-  await new Promise(res => animateValue(380, p => {
+  animateValue(380, p => {
     for (let i = 0; i < MAX_TEXT_PARTICLES; i++) {
       const k = i*3;
-      if (i*3 < from.length) {
-        tPos.array[k] = from[k] + scatter[k]*p;
-        tPos.array[k+1] = from[k+1] + scatter[k+1]*p;
-        tPos.array[k+2] = from[k+2] + scatter[k+2]*p;
-      } else {
-        tPos.array[k] += (Math.random()-.5)*30;
-        tPos.array[k+1] += (Math.random()-.5)*30;
-      }
+      tPos.array[k] = from[k] + scatter[k]*p;
+      tPos.array[k+1] = from[k+1] + scatter[k+1]*p;
+      tPos.array[k+2] = from[k+2] + scatter[k+2]*p;
     }
     tPos.needsUpdate = true;
-  }, res));
+  }, onDone);
 }
-async function gatherText(text) {
-  // 新文字从四面八方汇聚
-  const targets = buildTextParticles(text);
+function gatherText(text, onDone) {
+  let targets;
+  try {
+    targets = buildTextParticles(text);
+  } catch (e) {
+    console.error(e);
+    targets = [];
+  }
+  if (targets.length/3 < 120) {
+    // 粒子采样失败 → DOM 文字兜底
+    domText.element.style.display = 'block';
+    domText.element.textContent = text;
+    if (onDone) onDone();
+    return;
+  }
+  domText.element.style.display = 'none';
   const tPos = textPoints.geometry.attributes.position;
   const scatter = scatterOffsets();
   const n3 = targets.length;
-  await new Promise(res => animateValue(760, p => {
+  animateValue(800, p => {
     for (let i = 0; i < MAX_TEXT_PARTICLES; i++) {
       const k = i*3;
       if (k < n3) {
@@ -372,48 +362,29 @@ async function gatherText(text) {
         tPos.array[k+1] = scatter[k+1]*(1-p) + targets[k+1]*p;
         tPos.array[k+2] = scatter[k+2]*(1-p) + targets[k+2]*p;
       } else {
-        // 多余粒子飞远
-        tPos.array[k] *= .96;
-        tPos.array[k+1] *= .96;
-        tPos.array[k+2] *= .96;
+        tPos.array[k] *= .95;
+        tPos.array[k+1] *= .95;
+        tPos.array[k+2] *= .95;
       }
     }
     tPos.needsUpdate = true;
-  }, res));
-  // 记录当前显示位置（把 targets 写满到容量）
-  textCurrent = new Array(MAX_TEXT_PARTICLES*3).fill(0);
-  for (let i = 0; i < n3; i++) textCurrent[i] = targets[i];
-  for (let i = n3; i < MAX_TEXT_PARTICLES*3; i += 3) {
-    textCurrent[i] = (Math.random()-.5)*4000;
-    textCurrent[i+1] = (Math.random()-.5)*4000;
-    textCurrent[i+2] = (Math.random()-.5)*2000;
-  }
+  }, onDone);
 }
 
-// ---------- 翻页 ----------
-async function goToPage(newIndex) {
+// ---------- 翻页（纯粒子：旧字散开 → 新字汇聚） ----------
+function goToPage(newIndex) {
   if (busy) return;
   newIndex = clamp(newIndex, 0, TOTAL_PAGES-1);
   if (newIndex === pageIndex) return;
   busy = true;
-  const forward = newIndex > pageIndex;
-  const safety = setTimeout(() => { busy = false; leftPivot.rotation.y = 0; rightPivot.rotation.y = 0; }, 4000);
-  // 旧文字散开
-  await scatterText();
-  // 翻页动画：右纸板绕书脊翻越（或左纸板翻回）
-  await new Promise(res => animateValue(600, p => {
-    if (forward) rightPivot.rotation.y = -Math.PI*p;
-    else leftPivot.rotation.y = Math.PI*p;
-  }, res));
-  if (forward) rightPivot.rotation.y = 0;
-  else leftPivot.rotation.y = 0;
-  pageIndex = newIndex;
-  $('page-ind').textContent = `第 ${newIndex+1} / ${TOTAL_PAGES} 页`;
-  layoutStacks();
-  // 新文字从四面八方汇聚
-  await gatherText(PAGES_TEXT[newIndex]);
-  clearTimeout(safety);
-  busy = false;
+  const targetPage = newIndex;
+  scatterText(() => {
+    pageIndex = targetPage;
+    $('page-ind').textContent = `第 ${pageIndex+1} / ${TOTAL_PAGES} 页`;
+    gatherText(PAGES_TEXT[pageIndex], () => {
+      busy = false;
+    });
+  });
 }
 
 function renderFrame() {
@@ -428,34 +399,30 @@ function renderFrame() {
   fa.needsUpdate = true;
   framePoints.material.opacity = .76 + Math.sin(t*1.4)*.24;
   starPoints.rotation.y += .0004;
+  mistPoints.rotation.y -= .00025;
   controls.update();
   rendererWebGL.render(sceneWebGL, camera);
   rendererCSS.render(sceneCSS, camera);
 }
 function animate() {
-  function loop() {
-    requestAnimationFrame(loop);
-    renderFrame();
-  }
+  function loop() { requestAnimationFrame(loop); renderFrame(); }
   requestAnimationFrame(loop);
-  // 后台节流时兜底渲染
-  setInterval(renderFrame, 1000);
+  setInterval(renderFrame, 500);
 }
 
 // ---------- 启动 ----------
-async function start() {
+function start() {
   init();
-  // 开场：书结构粒子从远处汇聚
+  // 开场：结构粒子汇聚
   const fa = framePoints.geometry.attributes.position;
   const from = fa.array.slice();
-  await new Promise(res => animateValue(1100, p => {
-    for (let i = 0; i < from.length; i++) {
-      fa.array[i] = from[i]*(1-p) + frameBase[i]*p;
-    }
+  animateValue(1100, p => {
+    for (let i = 0; i < from.length; i++) fa.array[i] = from[i]*(1-p) + frameBase[i]*p;
     fa.needsUpdate = true;
-  }, res));
-  // 第一页文字汇聚
-  await gatherText(PAGES_TEXT[0]);
+  }, () => {
+    // 第一段文字汇聚
+    gatherText(PAGES_TEXT[0]);
+  });
 }
 
 window.addEventListener('pointerdown', (e) => {
