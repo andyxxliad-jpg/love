@@ -133,3 +133,7 @@ html, body {
 
 /* 小作文文字（屏幕固定覆盖层，绝对可见） */
 #letter-overlay { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 84%; max-width: 520px; z-index: 3600; color: #fff; font: 15px/2.1 'ZCOOL KuaiLe', 'PingFang SC', sans-serif; text-align: left; white-space: pre-wrap; letter-spacing: 1px; text-shadow: 0 0 10px rgba(255,255,255,.7); pointer-events: none; display: none; transition: opacity .4s ease; }
+
+/* 双击提示（右下角，仅首次显示） */
+#double-tap-hint { position: fixed; right: 18px; bottom: 14vh; z-index: 3200; color: #ffd7e6; font: 18px 'ZCOOL KuaiLe', 'PingFang SC', sans-serif; background: rgba(255,255,255,.14); border: 1px solid rgba(255,170,200,.55); padding: 13px 22px; border-radius: 26px; text-shadow: 0 0 10px rgba(255,150,190,.9); letter-spacing: 1px; pointer-events: none; display: none; animation: hintPulse 1.5s ease-in-out infinite; }
+@keyframes hintPulse { 0%, 100% { opacity: .75; transform: scale(1); } 50% { opacity: 1; transform: scale(1.06); } }
