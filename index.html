@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="css/style.css?v=40">
+    <link rel="stylesheet" href="css/style.css?v=41">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
     <script src="https://unpkg.com/three@0.128.0/examples/js/renderers/CSS3DRenderer.js"></script>
@@ -46,7 +46,7 @@
                 <span class="num" id="t-mins">0</span> 分 
                 <span class="num" id="t-secs">0</span> 秒
             </div>
-            <div class="subtitle">滑动可以旋转星空，点击照片可以放大哦✨</div>
+
             <button id="letter-shortcut" class="letter-shortcut" onclick="showModal('letter-modal')" aria-label="打开信件">✉</button>
         </div>
 
@@ -63,6 +63,19 @@
         </div>
     </div>
 
+    <div id="tips-modal" class="modal">
+        <div class="modal-content tips-content">
+            <span class="close" onclick="hideModal('tips-modal')">&times;</span>
+            <h2 class="modal-title">✨ 操作提示</h2>
+            <div class="tips-list">
+                <p>👆 滑动屏幕：旋转视角</p>
+                <p>🖼️ 点击照片：放大查看</p>
+                <p>✋ 双指拖动：移动画面</p>
+                <p>🔍 双指缩放：拉近拉远镜头</p>
+            </div>
+        </div>
+    </div>
+
     <div id="letter-modal" class="modal">
         <div class="modal-content letter-bg">
             <span class="close" onclick="hideModal('letter-modal')">&times;</span>
@@ -74,7 +87,7 @@
     </div>
 
     <audio id="bgm" src="assets/audio/1.mp3" preload="auto" loop playsinline webkit-playsinline></audio>
-    <script src="js/main.js?v=40"></script>
+    <script src="js/main.js?v=41"></script>
 <div id="blackout"></div>
 </body>
 </html>
