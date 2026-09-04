@@ -876,6 +876,64 @@ async function playMessage() {
     controls.update();
     messagePlaying = false;
 }
+function moveCameraSmooth(targetPos, targetTgt, duration) {
+    return new Promise(res => {
+        const sx = camera.position.x, sy = camera.position.y, sz = camera.position.z;
+        const tx = controls.target.x, ty = controls.target.y, tz = controls.target.z;
+        const t0 = performance.now();
+        const timer = setInterval(() => {
+            const p = Math.min(1, (performance.now() - t0) / duration);
+            const e = p < 0.5 ? 4*p*p*p : 1 - Math.pow(-2*p+2, 3)/2;
+            camera.position.set(sx + (targetPos.x - sx)*e, sy + (targetPos.y - sy)*e, sz + (targetPos.z - sz)*e);
+            controls.target.set(tx + (targetTgt.x - tx)*e, ty + (targetTgt.y - ty)*e, tz + (targetTgt.z - tz)*e);
+            camera.lookAt(controls.target);
+            if (p >= 1) { clearInterval(timer); res(); }
+        }, 16);
+    });
+}
+function cameraTour() {
+    if (tourPlaying) return;
+    tourPlaying = true;
+    const prevAutoRotate = controls.autoRotate;
+    const prevEnabled = controls.enabled;
+    const startPos = { x: camera.position.x, y: camera.position.y, z: camera.position.z };
+    const startTgt = { x: controls.target.x, y: controls.target.y, z: controls.target.z };
+    controls.autoRotate = false;
+    controls.enabled = false;
+    const name = SHAPE_NAMES[currentShapeIndex];
+    const t0 = performance.now();
+    const duration = 9000;
+    const timer = setInterval(() => {
+        const p = Math.min(1, (performance.now() - t0) / duration);
+        const t = p * Math.PI * 2;
+        if (name === 'tree') {
+            // 圣诞树：从树顶移到树底
+            const y = 950 - p * 1900;
+            camera.position.set(1900, y, 1400);
+            controls.target.set(0, y * 0.55, 0);
+        } else if (name === 'heart') {
+            // 爱心：沿爱心轮廓临摹
+            const x = 16 * Math.pow(Math.sin(t), 3) * 130;
+            const y = (13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t)) * 130;
+            camera.position.set(x, y + 160, 2500);
+            controls.target.set(0, 150, 0);
+        } else {
+            // 其他形状：环绕一周
+            camera.position.set(Math.cos(t)*2300, 260, Math.sin(t)*2300);
+            controls.target.set(0, 0, 0);
+        }
+        camera.lookAt(controls.target);
+        if (p >= 1) {
+            clearInterval(timer);
+            // 平滑回到原位
+            moveCameraSmooth(startPos, startTgt, 1800).then(() => {
+                controls.autoRotate = prevAutoRotate;
+                controls.enabled = prevEnabled;
+                tourPlaying = false;
+            });
+        }
+    }, 16);
+}
 function switchShape() {
     if (shapeBusy) return;
     const hint = document.getElementById('double-tap-hint');
@@ -892,21 +950,32 @@ function switchShape() {
 }
 let lastTapTime = 0, lastTapX = 0, lastTapY = 0;
 let suppressPhotoClick = false;
+let tapCount = 0;
+let tapTimer = null;
+let tourPlaying = false;
 window.addEventListener('pointerdown', (e) => {
-    if (messagePlaying) return;
+    if (messagePlaying || tourPlaying) return;
+    if (e.target.closest && e.target.closest('.element')) return;
     const now = performance.now();
     const dx = Math.abs(e.clientX - lastTapX);
     const dy = Math.abs(e.clientY - lastTapY);
-    if (now - lastTapTime < 350 && dx < 50 && dy < 50) {
-        switchShape();
-        suppressPhotoClick = true;
-        setTimeout(() => { suppressPhotoClick = false; }, 450);
-        lastTapTime = 0;
+    if (now - lastTapTime < 400 && dx < 70 && dy < 70) {
+        tapCount++;
     } else {
-        lastTapTime = now;
-        lastTapX = e.clientX;
-        lastTapY = e.clientY;
+        tapCount = 1;
     }
+    lastTapTime = now;
+    lastTapX = e.clientX;
+    lastTapY = e.clientY;
+    clearTimeout(tapTimer);
+    tapTimer = setTimeout(() => {
+        if (tapCount >= 3) {
+            cameraTour();
+        } else if (tapCount === 2) {
+            switchShape();
+        }
+        tapCount = 0;
+    }, 380);
 });
 
 function transform( targets, duration ) {
