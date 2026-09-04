@@ -999,32 +999,30 @@ async function playMessage() {
     await wait(1900);
     // 文字期间：镜头环绕照片圈，电影级线性展示照片
     const msgTourT0 = performance.now();
-    let nameShown = false;
     const msgTour = setInterval(() => {
         const raw = ((performance.now() - msgTourT0) / 24000) % 1;
         const e = raw < 0.5 ? 4*raw*raw*raw : 1 - Math.pow(-2*raw+2, 3)/2;
         const t = e * Math.PI * 2;
-        // 电影级运镜：推近 → 环绕展示 → 名字特写 → 拉远
+        // 电影级远景运镜：推近 → 环绕展示 → 拉远拉升 → 高空俯瞰回落
         const p = raw;
-        if (p < 0.12) {
-            const q = p / 0.12;
-            const r = 3200 - q * 1150;
+        if (p < 0.15) {
+            const q = p / 0.15;
+            const r = 3600 - q * 1400;
             const ang = q * Math.PI;
-            camera.position.set(Math.cos(ang)*r, Math.sin(ang)*r, 0);
-        } else if (p < 0.58) {
-            if (!nameShown) { scatterName(); }
-            const tt = ((p - 0.12) / 0.46) * Math.PI * 2;
-            camera.position.set(Math.cos(tt)*2050, Math.sin(tt)*2050, Math.sin(tt*2)*160);
-        } else if (p < 0.8) {
-            if (!nameShown) { showName(); nameShown = true; }
-            const q = (p - 0.58) / 0.22;
-            camera.position.set(0, 920, 1650 - q * 350);
+            camera.position.set(Math.cos(ang)*r, Math.sin(ang)*r, q * 180);
+        } else if (p < 0.5) {
+            const tt = ((p - 0.15) / 0.35) * Math.PI * 2;
+            camera.position.set(Math.cos(tt)*2200, Math.sin(tt)*2200, Math.sin(tt*2)*220);
+        } else if (p < 0.75) {
+            const q = (p - 0.5) / 0.25;
+            const r = 2200 + q * 1500;
+            const ang = (1 + q) * Math.PI * 0.55;
+            camera.position.set(Math.cos(ang)*r, 320 + q * 480, Math.sin(ang)*r);
         } else {
-            if (nameShown) { scatterName(); nameShown = false; }
-            const q = (p - 0.8) / 0.2;
-            const r = 1350 + q * 1800;
-            const ang = q * Math.PI;
-            camera.position.set(Math.cos(ang)*r, Math.sin(ang)*r, Math.sin(q*Math.PI)*300);
+            const q = (p - 0.75) / 0.25;
+            const r = 3700 - q * 120;
+            const ang = (1.55 + q * 1.1) * Math.PI;
+            camera.position.set(Math.cos(ang)*r, 800 - q * 480, Math.sin(ang)*r);
         }
         controls.target.set(0, 920, 0);
         camera.lookAt(controls.target);
@@ -1203,9 +1201,9 @@ window.addEventListener('pointerdown', (e) => {
     tapTimer = setTimeout(() => {
         const cfg = Object.assign(defaultSettings(), loadSettings());
         if (tapCount >= 5) {
-            if (cfg.fiveTapOn && !messagePlaying) playMessage();
+            if (cfg.nameTapOn && !messagePlaying) showNamePermanently();
         } else if (tapCount === 4) {
-            if (cfg.nameTapOn) showNamePermanently();
+            // 已取消：四连击召唤名字
         } else if (tapCount >= 3) {
             if (cfg.tripleTapOn) cameraTour();
         } else if (tapCount === 2) {
