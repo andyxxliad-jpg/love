@@ -38,33 +38,29 @@ function updatePhotoLoading() {
 }
 
 function preloadAllPhotos() {
-    let next = 1;
-    const worker = async () => {
-        while (next <= totalUploadedPhotos) {
-            const index = next++;
-            await new Promise(resolve => {
-                const image = new Image();
-                image.decoding = 'async';
-                image.onload = () => {
-                    const done = () => resolve();
-                    if (image.decode) image.decode().catch(() => {}).finally(done);
-                    else done();
-                };
-                image.onerror = resolve;
-                image.src = `assets/images/${index}.webp`;
-            });
-            photosLoaded++;
+    const trackingImages = [];
+    for (let index = 1; index <= totalUploadedPhotos; index++) {
+        trackingImages.push(new Promise(resolve => {
+            const image = new Image();
+            image.onload = resolve;
+            image.onerror = resolve;
+            image.src = `assets/images/${index}.webp`;
+        }));
+    }
+    let completed = 0;
+    trackingImages.forEach(promise => {
+        promise.then(() => {
+            completed++;
+            photosLoaded = completed;
             updatePhotoLoading();
-        }
-    };
-    Promise.all(Array.from({ length: 4 }, worker)).then(() => {
-        photosLoaded = totalUploadedPhotos;
-        updatePhotoLoading();
-        photosReady = true;
-        const status = document.getElementById('photo-loading-status');
-        if (status) status.textContent = '照片准备完成';
-        const screen = document.getElementById('photo-loading-screen');
-        if (screen) screen.classList.add('hidden');
+            if (completed >= totalUploadedPhotos) {
+                photosReady = true;
+                const status = document.getElementById('photo-loading-status');
+                if (status) status.textContent = '照片准备完成';
+                const screen = document.getElementById('photo-loading-screen');
+                if (screen) screen.classList.add('hidden');
+            }
+        });
     });
 }
 
