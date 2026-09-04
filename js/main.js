@@ -4,51 +4,65 @@ function initShapeControls() {
     shapeToggle = document.getElementById('shape-toggle');
     shapeButtonsContainer = document.getElementById('shape-buttons');
     shapeButtons = Array.from(document.querySelectorAll('.shape-btn'));
-    if (shapeToggle && shapeButtonsContainer) {
-        shapeToggle.addEventListener('click', () => {
-            controlsUI.classList.toggle('open');
-            shapeToggle.classList.toggle('open', controlsUI.classList.contains('open'));
-        });
-        // 长按滑选：按钮展开后，滑动经过哪个形状就实时预览，松手确认。
-        let pressActive = false;
-        let lastPreview = null;
-        const getShapeTarget = (btn) => {
-            if (!btn) return null;
-            const id = btn.id;
-            if (id === 'btn-heart') return targets.heart;
-            if (id === 'btn-sphere') return targets.sphere;
-            if (id === 'btn-helix') return targets.helix;
-            if (id === 'btn-grid') return targets.grid;
-            return null;
-        };
-        shapeButtons.forEach(btn => {
-            btn.addEventListener('pointerdown', (e) => {
-                pressActive = true;
-                btn.setPointerCapture && btn.setPointerCapture(e.pointerId);
-            });
-            btn.addEventListener('pointermove', (e) => {
-                if (!pressActive) return;
-                const target = getShapeTarget(btn);
-                if (target && lastPreview !== target) {
-                    lastPreview = target;
-                    btn.classList.add('hovered');
-                    shapeButtons.forEach(other => { if (other !== btn) other.classList.remove('hovered'); });
-                    transform(target, 900);
-                }
-            });
-            btn.addEventListener('pointerup', () => {
-                if (!pressActive) return;
-                pressActive = false;
-                btn.classList.remove('hovered');
-                lastPreview = null;
-            });
-            btn.addEventListener('pointercancel', () => {
-                pressActive = false;
-                btn.classList.remove('hovered');
-                lastPreview = null;
-            });
-        });
-    }
+    if (!shapeToggle || !shapeButtonsContainer) return;
+
+    const getShapeTarget = (btn) => {
+        if (!btn) return null;
+        if (btn.id === 'btn-heart') return targets.heart;
+        if (btn.id === 'btn-sphere') return targets.sphere;
+        if (btn.id === 'btn-helix') return targets.helix;
+        if (btn.id === 'btn-grid') return targets.grid;
+        return null;
+    };
+    const buttonFromPoint = (x, y) => {
+        for (const btn of shapeButtons) {
+            const rect = btn.getBoundingClientRect();
+            if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) return btn;
+        }
+        return null;
+    };
+
+    let pressActive = false;
+    let lastHover = null;
+
+    const preview = (btn) => {
+        if (!btn) return;
+        const target = getShapeTarget(btn);
+        if (!target) return;
+        shapeButtons.forEach(other => other.classList.toggle('hovered', other === btn));
+        if (lastHover !== btn) {
+            lastHover = btn;
+            transform(target, 650);
+        }
+    };
+    const endPress = () => {
+        pressActive = false;
+        lastHover = null;
+        shapeButtons.forEach(btn => btn.classList.remove('hovered'));
+    };
+
+    shapeToggle.addEventListener('click', () => {
+        const open = controlsUI.classList.toggle('open');
+        shapeToggle.classList.toggle('open', open);
+    });
+
+    // 在按钮区域按下即进入滑选模式（无论点击还是长按都生效）。
+    shapeButtonsContainer.addEventListener('pointerdown', (e) => {
+        pressActive = true;
+        const btn = e.target.closest('.shape-btn');
+        if (btn) preview(btn);
+    });
+    window.addEventListener('pointermove', (e) => {
+        if (!pressActive) return;
+        const btn = buttonFromPoint(e.clientX, e.clientY);
+        if (btn) preview(btn);
+    });
+    window.addEventListener('pointerup', () => {
+        if (pressActive) endPress();
+    });
+    window.addEventListener('pointercancel', () => {
+        if (pressActive) endPress();
+    });
 }
 
 let shapeToggle = null;
@@ -391,7 +405,7 @@ function init() {
         element.className = 'element';
         
         let imgIndex = (i % totalUploadedPhotos) + 1;
-        element.style.backgroundImage = `url('assets/images/tiny/${imgIndex}.webp')`;
+        element.style.backgroundImage = `url('assets/images/${imgIndex}.webp')`;
         
         let pointerDownPos = { x: 0, y: 0 };
         element.addEventListener('pointerdown', (e) => {
@@ -416,7 +430,7 @@ function init() {
         // 背面面板：与正面共享同一照片，绕 Y 轴旋转 180 度，爱心旋转时背面不再空白。
         const backElement = document.createElement( 'div' );
         backElement.className = 'element element-back';
-        backElement.style.backgroundImage = `url('assets/images/tiny/${imgIndex}.webp')`;
+        backElement.style.backgroundImage = `url('assets/images/${imgIndex}.webp')`;
         const backCSS = new THREE.CSS3DObject( backElement );
         backCSS.rotation.y = Math.PI;
         objectCSS.add( backCSS );
@@ -485,24 +499,7 @@ function init() {
 
     window.addEventListener( 'resize', onWindowResize );
 
-    document.getElementById('btn-heart').addEventListener('click', () => transform(targets.heart, 1500));
-    document.getElementById('btn-sphere').addEventListener('click', () => transform(targets.sphere, 1500));
-    document.getElementById('btn-helix').addEventListener('click', () => transform(targets.helix, 1500));
-    document.getElementById('btn-grid').addEventListener('click', () => transform(targets.grid, 1500));
-}
-
-let thumbPreloadDone = false;
-function preloadThumbs() {
-    const jobs = [];
-    for (let index = 1; index <= totalUploadedPhotos; index++) {
-        jobs.push(new Promise(resolve => {
-            const image = new Image();
-            image.onload = resolve;
-            image.onerror = resolve;
-            image.src = `assets/images/thumbs/${index}.webp`;
-        }));
-    }
-    Promise.all(jobs).then(() => { thumbPreloadDone = true; });
+    // 形状切换由长按滑选模式统一处理（initShapeControls）。
 }
 
 function enterAnimation() {
@@ -513,10 +510,7 @@ function enterAnimation() {
         const target = targets.heart[i];
         object.visible = true;
         object.scale.set(0.2, 0.2, 0.2);
-        const imgIndex = (i % totalUploadedPhotos) + 1;
-        // 入场阶段先显示轻量预览图，避免大量高清图解码造成卡顿。
-        object.element.style.backgroundImage = `url('assets/images/tiny/${imgIndex}.webp')`;
-        if (object.userData.backElement) object.userData.backElement.style.backgroundImage = `url('assets/images/tiny/${imgIndex}.webp')`;
+        // 图片在加载页阶段已全部预加载并常驻，动画直接使用原图。
         // 从外圈螺旋进入：半径随进度缩小，同时自转，最后停在心形目标上。
         const angle = Math.random() * Math.PI * 2;
         const radius = 5000 + Math.random() * 2500;
@@ -543,28 +537,9 @@ function enterAnimation() {
             .delay(delay)
             .start();
     }
-    // 动画结束后，直接在极致压缩预览图上逐张替换成高清原图（不做全局清空，避免黑屏闪烁）。
-    const revealDelay = duration + 900;
-    for (let i = 0; i < objects.length; i++) {
-        setTimeout(() => {
-            const imgIndex = (i % totalUploadedPhotos) + 1;
-            const url = `assets/images/${imgIndex}.webp`;
-            const image = new Image();
-            const apply = () => {
-                objects[i].element.style.backgroundImage = `url('${url}')`;
-                if (objects[i].userData.backElement) objects[i].userData.backElement.style.backgroundImage = `url('${url}')`;
-            };
-            image.onload = () => {
-                if (image.decode) image.decode().then(apply).catch(apply);
-                else apply();
-            };
-            image.onerror = apply;
-            image.src = url;
-        }, revealDelay + i * 280);
-    }
+    // 原图已常驻，动画结束后无需任何替换。
 }
 
-preloadThumbs();
 
 function transform( targets, duration ) {
     TWEEN.removeAll();
