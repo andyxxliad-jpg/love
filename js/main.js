@@ -1,25 +1,3 @@
-const controlsUI = document.getElementById('shape-controls');
-let uiFadeTimeout;
-
-function handlePointerMove(x, y) {
-    if (document.getElementById('main-ui').style.opacity === '0') return;
-    const isMobile = window.innerWidth <= 768;
-    let isNear = isMobile ? (y > window.innerHeight * 0.55) : (x > window.innerWidth * 0.65);
-
-    if (isNear) {
-        controlsUI.classList.remove('hidden');
-        clearTimeout(uiFadeTimeout);
-        uiFadeTimeout = setTimeout(() => { controlsUI.classList.add('hidden'); }, 2500);
-    } else {
-        controlsUI.classList.add('hidden');
-    }
-}
-
-window.addEventListener('mousemove', (e) => handlePointerMove(e.clientX, e.clientY));
-window.addEventListener('touchstart', (e) => {
-    if(e.touches.length > 0) handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
-}, {passive: true}); 
-
 let photosReady = false;
 let photosLoaded = 0;
 let animationPending = false;
@@ -80,8 +58,6 @@ function startExperience() {
     } else {
         enterAnimation();
     }
-    controlsUI.classList.remove('hidden');
-    uiFadeTimeout = setTimeout(() => { controlsUI.classList.add('hidden'); }, 3000);
 }
 
 const btnLocation = document.getElementById('btn-location');
@@ -295,6 +271,44 @@ function init() {
     particles = new THREE.Points(geometry, pMaterial);
     sceneWebGL.add(particles);
 
+    // 树干与树顶星粒子（切换圣诞树时汇聚成形，心形时散回星空）
+    const trunkCount = 500;
+    trunkBasePos = new Float32Array(trunkCount * 3);
+    trunkTargetPos = new Float32Array(trunkCount * 3);
+    const trunkCols = new Float32Array(trunkCount * 3);
+    for (let i = 0; i < trunkCount; i++) {
+        trunkBasePos[i*3] = (Math.random() - .5) * 5000;
+        trunkBasePos[i*3+1] = (Math.random() - .5) * 5000;
+        trunkBasePos[i*3+2] = (Math.random() - .5) * 5000;
+        if (i < 440) {
+            // 树干：树底向下延伸的柱体
+            const a = Math.random() * Math.PI * 2;
+            const r = 30 + Math.random() * 120;
+            trunkTargetPos[i*3] = Math.cos(a) * r;
+            trunkTargetPos[i*3+1] = -620 - Math.random() * 950;
+            trunkTargetPos[i*3+2] = Math.sin(a) * r;
+            trunkCols[i*3] = 1; trunkCols[i*3+1] = .94; trunkCols[i*3+2] = .82;
+        } else {
+            // 树顶星：金色光晕
+            const a = Math.random() * Math.PI * 2;
+            const r = Math.random() * 130;
+            trunkTargetPos[i*3] = Math.cos(a) * r;
+            trunkTargetPos[i*3+1] = 920 + Math.random() * 140;
+            trunkTargetPos[i*3+2] = Math.sin(a) * r;
+            trunkCols[i*3] = 1; trunkCols[i*3+1] = .84; trunkCols[i*3+2] = .45;
+        }
+    }
+    const trunkGeo = new THREE.BufferGeometry();
+    const trunkInit = new Float32Array(trunkBasePos);
+    trunkGeo.setAttribute('position', new THREE.BufferAttribute(trunkInit, 3));
+    const trunkColInit = new Float32Array(trunkCount * 3);
+    for (let i = 0; i < trunkCount * 3; i++) trunkColInit[i] = 1;
+    trunkGeo.setAttribute('color', new THREE.BufferAttribute(trunkColInit, 3));
+    trunkPoints = new THREE.Points(trunkGeo, new THREE.PointsMaterial({
+        size: 40, map: texture, vertexColors: true, transparent: true, opacity: .9,
+        blending: THREE.AdditiveBlending, depthWrite: false }));
+    sceneWebGL.add(trunkPoints);
+
     rendererWebGL = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     rendererWebGL.setSize( window.innerWidth, window.innerHeight );
     document.getElementById('webgl-container').appendChild( rendererWebGL.domElement );
@@ -316,6 +330,7 @@ function init() {
             const dx = Math.abs(e.clientX - pointerDownPos.x);
             const dy = Math.abs(e.clientY - pointerDownPos.y);
             if (dx < 5 && dy < 5) {
+                if (suppressPhotoClick) return;
                 document.getElementById('enlarged-photo').src = `assets/images/${imgIndex}.webp`;
                 showModal('photo-modal');
             }
@@ -342,35 +357,21 @@ function init() {
         targets.heart.push( object );
     }
 
-    const vector = new THREE.Vector3();
-    for ( let i = 0, l = objects.length; i < l; i ++ ) {
-        const phi = Math.acos( - 1 + ( 2 * i ) / l );
-        const theta = Math.sqrt( l * Math.PI ) * phi;
-        const object = new THREE.Object3D();
-        object.position.setFromSphericalCoords( 900, phi, theta );
-        vector.copy( object.position ).multiplyScalar( 2 );
-        object.lookAt( vector );
-        targets.sphere.push( object );
-    }
-
-    for ( let i = 0, l = objects.length; i < l; i ++ ) {
-        const theta = i * 0.25 + Math.PI;
-        const y = - ( i * 15 ) + 900; 
-        const object = new THREE.Object3D();
-        object.position.setFromCylindricalCoords( 900, theta, y );
-        vector.x = object.position.x * 2;
-        vector.y = object.position.y;
-        vector.z = object.position.z * 2;
-        object.lookAt( vector );
-        targets.helix.push( object );
-    }
-
-    for ( let i = 0; i < objects.length; i ++ ) {
-        const object = new THREE.Object3D();
-        object.position.x = ( ( i % 6 ) * 250 ) - 600;
-        object.position.y = ( - ( Math.floor( i / 6 ) % 5 ) * 250 ) + 500;
-        object.position.z = ( Math.floor( i / 30 ) ) * 500 - 1000;
-        targets.grid.push( object );
+    // 圣诞树：照片分层挂在树冠上（共 120 张），面向外侧
+    const treeLevels = [
+        { y: -420, r: 1150, count: 48 },
+        { y: -60,  r: 880,  count: 40 },
+        { y: 320,  r: 600,  count: 26 },
+        { y: 620,  r: 300,  count: 6 }
+    ];
+    for ( const level of treeLevels ) {
+        for ( let j = 0; j < level.count; j ++ ) {
+            const a = ( j / level.count ) * Math.PI * 2;
+            const object = new THREE.Object3D();
+            object.position.set( Math.cos( a ) * level.r, level.y, Math.sin( a ) * level.r );
+            object.lookAt( 0, level.y, 0 );
+            targets.tree.push( object );
+        }
     }
 
     rendererCSS = new THREE.CSS3DRenderer();
@@ -391,10 +392,6 @@ function init() {
 
     window.addEventListener( 'resize', onWindowResize );
 
-    document.getElementById('btn-heart').addEventListener('click', () => transform(targets.heart, 1500));
-    document.getElementById('btn-sphere').addEventListener('click', () => transform(targets.sphere, 1500));
-    document.getElementById('btn-helix').addEventListener('click', () => transform(targets.helix, 1500));
-    document.getElementById('btn-grid').addEventListener('click', () => transform(targets.grid, 1500));
 }
 
 function enterAnimation() {
@@ -442,6 +439,73 @@ function enterAnimation() {
     }
     new TWEEN.Tween(this).to({}, 6000).onUpdate(render).start();
 }
+
+let trunkBasePos, trunkTargetPos, trunkPoints;
+let currentShape = 'heart';
+let shapeBusy = false;
+function animateTrunk(toTree) {
+    const geo = trunkPoints.geometry;
+    const posAttr = geo.attributes.position;
+    const colAttr = geo.attributes.color;
+    const state = { p: 0 };
+    const from = toTree ? 0 : 1;
+    const to = toTree ? 1 : 0;
+    new TWEEN.Tween(state)
+        .to({ p: to }, 1700)
+        .easing(TWEEN.Easing.Cubic.InOut)
+        .onUpdate(() => {
+            const p = state.p;
+            for (let i = 0; i < trunkBasePos.length; i++) {
+                posAttr.array[i] = trunkBasePos[i] * (1 - p) + trunkTargetPos[i] * p;
+            }
+            posAttr.needsUpdate = true;
+            for (let i = 0; i < trunkTargetPos.length; i += 3) {
+                if (toTree) {
+                    const warm = p;
+                    colAttr.array[i] = 1;
+                    colAttr.array[i+1] = 1 - (1 - .94) * warm - .06 * warm * (i % 2);
+                    colAttr.array[i+2] = 1 - (1 - .82) * warm;
+                } else {
+                    colAttr.array[i] = 1;
+                    colAttr.array[i+1] = 1;
+                    colAttr.array[i+2] = 1;
+                }
+            }
+            colAttr.needsUpdate = true;
+        })
+        .start();
+}
+function switchShape() {
+    if (shapeBusy) return;
+    shapeBusy = true;
+    setTimeout(() => { shapeBusy = false; }, 2300);
+    if (currentShape === 'heart') {
+        currentShape = 'tree';
+        transform(targets.tree, 1800);
+        animateTrunk(true);
+    } else {
+        currentShape = 'heart';
+        transform(targets.heart, 1800);
+        animateTrunk(false);
+    }
+}
+let lastTapTime = 0, lastTapX = 0, lastTapY = 0;
+let suppressPhotoClick = false;
+window.addEventListener('pointerdown', (e) => {
+    const now = performance.now();
+    const dx = Math.abs(e.clientX - lastTapX);
+    const dy = Math.abs(e.clientY - lastTapY);
+    if (now - lastTapTime < 350 && dx < 50 && dy < 50) {
+        switchShape();
+        suppressPhotoClick = true;
+        setTimeout(() => { suppressPhotoClick = false; }, 450);
+        lastTapTime = 0;
+    } else {
+        lastTapTime = now;
+        lastTapX = e.clientX;
+        lastTapY = e.clientY;
+    }
+});
 
 function transform( targets, duration ) {
     TWEEN.removeAll();
