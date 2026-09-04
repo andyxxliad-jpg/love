@@ -877,18 +877,9 @@ function sampleNameText(text, offsetX) {
 }
 function buildNameParticles() {
     const pts = [];
-    // 左侧 "andy" + 右侧 "陶陶"
+    // 只有两个名字：左侧 "andy" + 右侧 "陶陶"
     pts.push(...sampleNameText('andy', -340));
     pts.push(...sampleNameText('陶陶', 340));
-    // 中间：粒子排列成空心爱心轮廓
-    // 标准实心 3D 爱心（直接生成完整爱心形状）
-    for (let i = 0; i < 3000; i++) {
-        const t = Math.random() * Math.PI * 2;
-        const rr = Math.sqrt(Math.random());
-        const hx = 16 * Math.pow(Math.sin(t), 3) * 18 * rr;
-        const hy = (13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t)) * 18 * rr;
-        pts.push(hx, hy + 6, (Math.random() - .5) * 22);
-    }
     return pts;
 }
 function nameScatter() {
@@ -1194,16 +1185,6 @@ function switchShape() {
 }
 let lastTapTime = 0, lastTapX = 0, lastTapY = 0;
 let suppressPhotoClick = false;
-const testBtn = document.getElementById('test-btn');
-if (testBtn) {
-    testBtn.addEventListener('click', () => {
-        if (audio) {
-            try { audio.currentTime = 88; } catch (e) {}
-            audio.play().catch(() => {});
-        }
-        playMessage();
-    });
-}
 window.addEventListener('pointerdown', (e) => {
     if (messagePlaying || tourPlaying) return;
     if (e.target.closest && e.target.closest('.element')) return;
@@ -1307,7 +1288,7 @@ if (!isFirstTime) {
     // 老用户：图片加载完成后直接进入，不强制显示信件。
 }
 
-/* ===== 控制台（密码 xiaolishaoTTKX08）===== */
+/* 核心配置读取（默认值，供动画参数与手势开关使用） */
 function loadSettings() {
     try { return JSON.parse(localStorage.getItem('consoleSettings')) || {}; } catch (e) { return {}; }
 }
@@ -1317,134 +1298,3 @@ function saveSettings(s) {
 function defaultSettings() {
     return { announcementOn: false, announcementText: '', testBtnOn: true, calendarOn: false, calendarEvents: [], maintenanceOn: false, musicOn: true, doubleTapOn: true, tripleTapOn: true, letterOn: true, tipsOn: true, photoZoomOn: true, nameTapOn: true, fiveTapOn: true, tourDuration: 10, tourDistance: 1, heartScale: 1, photoCountCfg: 120, title: '', desc: '' };
 }
-function applySettings() {
-    const s = Object.assign(defaultSettings(), loadSettings());
-    const maint = document.getElementById('maintenance-overlay');
-    if (maint) maint.classList.toggle('show', s.maintenanceOn);
-    const testBtn = document.getElementById('test-btn');
-    if (testBtn) testBtn.style.display = s.testBtnOn ? 'block' : 'none';
-    const fab = document.getElementById('calendar-fab');
-    if (fab) fab.style.display = s.calendarOn ? 'block' : 'none';
-    renderCalendar();
-    return s;
-}
-function renderCalendar() {
-    const s = Object.assign(defaultSettings(), loadSettings());
-    const list = document.getElementById('cal-list');
-    if (!list) return;
-    list.innerHTML = '';
-    s.calendarEvents.forEach((ev, i) => {
-        const d = document.createElement('div');
-        d.className = 'cal-item';
-        d.innerHTML = '<b>' + ev.date + '</b>　' + ev.text + ' <button data-i="' + i + '" class="cal-del" style="float:right;background:none;border:none;color:#ff8ca3;cursor:pointer">删除</button>';
-        list.appendChild(d);
-    });
-    document.querySelectorAll('.cal-del').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const s = Object.assign(defaultSettings(), loadSettings());
-            s.calendarEvents.splice(Number(btn.dataset.i), 1);
-            saveSettings(s); renderCalendar();
-        });
-    });
-}
-function openConsolePanel() {
-    const s = Object.assign(defaultSettings(), loadSettings());
-    document.getElementById('cfg-announce').checked = s.announcementOn;
-    document.getElementById('cfg-announce-text').value = s.announcementText || '';
-    document.getElementById('cfg-testbtn').checked = s.testBtnOn;
-    document.getElementById('cfg-calendar').checked = s.calendarOn;
-    document.getElementById('cfg-nametap').checked = s.nameTapOn;
-    document.getElementById('cfg-fivetap').checked = s.fiveTapOn;
-    document.getElementById('cfg-tourduration').value = s.tourDuration;
-    document.getElementById('cfg-tourdistance').value = s.tourDistance;
-    document.getElementById('cfg-heartscale').value = s.heartScale;
-    document.getElementById('cfg-photocount').value = s.photoCountCfg;
-    document.getElementById('cfg-title').value = s.title || '';
-    document.getElementById('cfg-desc').value = s.desc || '';
-    renderCalendar();
-    document.getElementById('console-lock').classList.remove('show');
-    document.getElementById('console-panel').classList.add('show');
-}
-function showAnnouncement() {
-    const s = Object.assign(defaultSettings(), loadSettings());
-    if (s.announcementOn && s.announcementText) {
-        document.getElementById('announce-content').textContent = s.announcementText;
-        showModal('announce-modal');
-    }
-}
-function closeAnnounce() { hideModal('announce-modal'); }
-function showCalendar() {
-    const s = Object.assign(defaultSettings(), loadSettings());
-    const c = document.getElementById('calendar-content');
-    if (!c) return;
-    if (!s.calendarEvents.length) { c.textContent = '还没有记录哦～'; }
-    else {
-        c.innerHTML = s.calendarEvents.map(ev => '<div class="cal-item"><b>' + ev.date + '</b><br>' + ev.text + '</div>').join('');
-    }
-    showModal('calendar-modal');
-}
-document.getElementById('console-cancel').addEventListener('click', () => {
-    document.getElementById('console-lock').classList.remove('show');
-});
-document.getElementById('console-unlock').addEventListener('click', () => {
-    if (document.getElementById('console-pwd').value === 'xiaolishaoTTKX08') {
-        document.getElementById('console-pwd').value = '';
-        openConsolePanel();
-    } else {
-        alert('密码错误');
-    }
-});
-document.getElementById('console-close').addEventListener('click', () => {
-    const s = Object.assign(defaultSettings(), loadSettings());
-    s.announcementOn = document.getElementById('cfg-announce').checked;
-    s.announcementText = document.getElementById('cfg-announce-text').value;
-    s.testBtnOn = document.getElementById('cfg-testbtn').checked;
-    s.calendarOn = document.getElementById('cfg-calendar').checked;
-    s.nameTapOn = document.getElementById('cfg-nametap').checked;
-    s.fiveTapOn = document.getElementById('cfg-fivetap').checked;
-    s.tourDuration = Number(document.getElementById('cfg-tourduration').value) || 10;
-    s.tourDistance = Number(document.getElementById('cfg-tourdistance').value) || 1;
-    s.heartScale = Number(document.getElementById('cfg-heartscale').value) || 1;
-    s.photoCountCfg = Number(document.getElementById('cfg-photocount').value) || 120;
-    s.title = document.getElementById('cfg-title').value;
-    s.desc = document.getElementById('cfg-desc').value;
-    saveSettings(s);
-    if (s.title) document.title = s.title;
-    applySettings();
-    document.getElementById('console-panel').classList.remove('show');
-});
-document.getElementById('cal-add').addEventListener('click', () => {
-    const date = document.getElementById('cal-date').value;
-    const text = document.getElementById('cal-text').value.trim();
-    if (!date || !text) return;
-    const s = Object.assign(defaultSettings(), loadSettings());
-    s.calendarEvents.push({ date: date, text: text });
-    saveSettings(s);
-    document.getElementById('cal-text').value = '';
-    renderCalendar();
-});
-document.getElementById('calendar-fab').addEventListener('click', showCalendar);
-document.getElementById('cfg-preview').addEventListener('click', () => { document.getElementById('console-panel').classList.remove('show'); });
-document.getElementById('cfg-export').addEventListener('click', () => {
-    const s = Object.assign(defaultSettings(), loadSettings());
-    const blob = new Blob([JSON.stringify(s, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'love-config.json';
-    a.click();
-});
-document.getElementById('cfg-reset').addEventListener('click', () => {
-    localStorage.removeItem('consoleSettings');
-    alert('已重置全部配置');
-    location.reload();
-});
-// 通过 URL 进入控制台：域名/#xiaolishao
-if (location.hash.includes('xiaolishao') || location.pathname.includes('xiaolishao')) {
-    document.getElementById('console-lock').classList.add('show');
-}
-// 初始化设置 + 公告 + 标题描述
-applySettings();
-const _s = Object.assign(defaultSettings(), loadSettings());
-if (_s.title) document.title = _s.title;
-if (_s.desc) { const md = document.querySelector('meta[name=description]'); if (md) md.setAttribute('content', _s.desc); }
-setTimeout(showAnnouncement, 800);
