@@ -843,26 +843,39 @@ async function combinePatterns(list) {
     });
     return out;
 }
-function buildNameParticles() {
+function sampleNameText(text, offsetX) {
     const canvas = document.createElement('canvas');
-    canvas.width = 900; canvas.height = 300;
+    canvas.width = 400; canvas.height = 200;
     const ctx = canvas.getContext('2d');
     ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, 900, 300);
+    ctx.fillRect(0, 0, 400, 200);
     ctx.fillStyle = '#fff';
-    ctx.font = 'bold 110px "Caveat","Kaiti SC","KaiTi","楷体","STKaiti",sans-serif';
+    ctx.font = 'bold 90px "Caveat","Kaiti SC","KaiTi","楷体","STKaiti",sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('andy ♥ 陶陶', 450, 150);
-    const data = ctx.getImageData(0, 0, 900, 300).data;
+    ctx.fillText(text, 200, 100);
+    const data = ctx.getImageData(0, 0, 400, 200).data;
     const pts = [];
-    for (let y = 0; y < 300; y += 6) for (let x = 0; x < 900; x += 6) {
-        const i = (y * 900 + x) * 4;
+    for (let y = 0; y < 200; y += 4) for (let x = 0; x < 400; x += 4) {
+        const i = (y * 400 + x) * 4;
         if (data[i] > 150 && data[i+1] > 150 && data[i+2] > 150) {
-            const px = (x / 900 - .5) * 1150 + (Math.random() - .5) * 24;
-            const py = (.5 - y / 300) * 380 + (Math.random() - .5) * 24;
-            pts.push(px, py, (Math.random() - .5) * 12);
+            pts.push((x / 400 - .5) * 400 + offsetX + (Math.random() - .5) * 16,
+                     (.5 - y / 200) * 290 + (Math.random() - .5) * 16,
+                     (Math.random() - .5) * 10);
         }
+    }
+    return pts;
+}
+function buildNameParticles() {
+    const pts = [];
+    // 左侧 "andy" + 右侧 "陶陶"
+    pts.push(...sampleNameText('andy', -340));
+    pts.push(...sampleNameText('陶陶', 340));
+    // 中间：粒子排列成空心爱心轮廓
+    for (let t = 0; t < Math.PI * 2; t += 0.06) {
+        const hx = 16 * Math.pow(Math.sin(t), 3) * 13;
+        const hy = (13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t)) * 13;
+        pts.push(hx, hy, (Math.random() - .5) * 8);
     }
     return pts;
 }
