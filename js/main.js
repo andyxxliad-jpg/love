@@ -331,7 +331,7 @@ function init() {
     sceneWebGL.add(trunkPoints);
 
     // 摩天轮骨架粒子：轮毂 + 轮辐 + 外圈圆环（XY 平面，绕 Z 轴滚动）
-    const ferrisCount = 560;
+    const ferrisCount = 720;
     ferrisBasePos = new Float32Array(ferrisCount * 3);
     ferrisTargetPos = new Float32Array(ferrisCount * 3);
     ferrisTargetCol = new Float32Array(ferrisCount * 3);
@@ -346,24 +346,24 @@ function init() {
         ferrisTargetCol[fi*3] = r; ferrisTargetCol[fi*3+1] = g; ferrisTargetCol[fi*3+2] = b;
         fi++;
     };
-    // 轮毂
-    for (let k = 0; k < 60; k++) {
+    // 轮毂（更亮更密）
+    for (let k = 0; k < 80; k++) {
         const a = Math.random() * Math.PI * 2;
-        const rr = Math.random() * 120;
-        putFerris(Math.cos(a)*rr, Math.sin(a)*rr, (Math.random()-.5)*20, 1, .92, .6);
+        const rr = Math.random() * 130;
+        putFerris(Math.cos(a)*rr, Math.sin(a)*rr, (Math.random()-.5)*20, 1, .97, .75);
     }
-    // 轮辐：12 条从轮毂伸向外圈
+    // 轮辐：12 条从轮毂伸向外圈（更密）
     for (let spoke = 0; spoke < 12; spoke++) {
         const a = spoke * (Math.PI * 2 / 12);
-        for (let s = 0; s < 15; s++) {
-            const rr = 130 + s * 52;
-            putFerris(Math.cos(a)*rr, Math.sin(a)*rr, (Math.random()-.5)*16, .9, .8, .55);
+        for (let s = 0; s < 20; s++) {
+            const rr = 130 + s * 41;
+            putFerris(Math.cos(a)*rr, Math.sin(a)*rr, (Math.random()-.5)*16, 1, .92, .68);
         }
     }
-    // 外圈圆环
-    for (let k = 0; k < 300; k++) {
+    // 外圈圆环（更亮更密）
+    for (let k = 0; k < 400; k++) {
         const a = Math.random() * Math.PI * 2;
-        putFerris(Math.cos(a)*950, Math.sin(a)*950, (Math.random()-.5)*22, 1, .95, .7);
+        putFerris(Math.cos(a)*950, Math.sin(a)*950, (Math.random()-.5)*22, 1, 1, .88);
     }
     const ferrisGeo = new THREE.BufferGeometry();
     const ferrisInit = new Float32Array(ferrisBasePos);
@@ -372,7 +372,7 @@ function init() {
     for (let i = 0; i < ferrisCount * 3; i++) ferrisColInit[i] = 1;
     ferrisGeo.setAttribute('color', new THREE.BufferAttribute(ferrisColInit, 3));
     ferrisPoints = new THREE.Points(ferrisGeo, new THREE.PointsMaterial({
-        size: 40, map: texture, vertexColors: true, transparent: true, opacity: .95,
+        size: 62, map: texture, vertexColors: true, transparent: true, opacity: 1,
         blending: THREE.AdditiveBlending, depthWrite: false }));
     sceneWebGL.add(ferrisPoints);
 
@@ -566,13 +566,18 @@ function enterAnimation() {
     new TWEEN.Tween(this).to({}, 6000).onUpdate(render).start();
 }
 
+let trunkState = 0;
+let ferrisState = 0;
 function animateTrunk(toTree) {
+    const target = toTree ? 1 : 0;
+    if (trunkState === target) return;   // 状态未变化，不重复动画
+    trunkState = target;
     const geo = trunkPoints.geometry;
     const posAttr = geo.attributes.position;
     const colAttr = geo.attributes.color;
-    const state = { p: toTree ? 0 : 1 };
+    const state = { p: target === 1 ? 0 : 1 };
     new TWEEN.Tween(state)
-        .to({ p: toTree ? 1 : 0 }, 1700)
+        .to({ p: target }, 1700)
         .easing(TWEEN.Easing.Cubic.InOut)
         .onUpdate(() => {
             const p = state.p;
@@ -589,12 +594,15 @@ function animateTrunk(toTree) {
         .start();
 }
 function animateFerris(toFerris) {
+    const target = toFerris ? 1 : 0;
+    if (ferrisState === target) return;
+    ferrisState = target;
     const geo = ferrisPoints.geometry;
     const posAttr = geo.attributes.position;
     const colAttr = geo.attributes.color;
-    const state = { p: toFerris ? 0 : 1 };
+    const state = { p: target === 1 ? 0 : 1 };
     new TWEEN.Tween(state)
-        .to({ p: toFerris ? 1 : 0 }, 1600)
+        .to({ p: target }, 1600)
         .easing(TWEEN.Easing.Cubic.InOut)
         .onUpdate(() => {
             const p = state.p;
