@@ -458,37 +458,42 @@ function enterAnimation() {
     TWEEN.removeAll();
     const previousAutoRotate = controls.autoRotate;
     controls.autoRotate = false;
-    const totalDuration = 5500;
-    const stripSpacing = window.innerWidth <= 768 ? 220 : 300;
-    const cardWidth = window.innerWidth <= 768 ? '150px' : '190px';
-    const cardHeight = window.innerWidth <= 768 ? '200px' : '250px';
-    const startX = window.innerWidth <= 768 ? 780 : 1100;
-    const endMargin = window.innerWidth <= 768 ? 900 : 1250;
-    const stripLength = (objects.length - 1) * stripSpacing;
-    const travelDistance = stripLength + startX + endMargin;
+    const entranceCount = Math.min(50, objects.length);
+    const totalDuration = 6000;
+    const isMobile = window.innerWidth <= 768;
+    const spacing = isMobile ? 245 : 340;
+    const cardWidth = isMobile ? '190px' : '260px';
+    const cardHeight = isMobile ? '255px' : '345px';
+    const startX = isMobile ? window.innerWidth * 0.95 : window.innerWidth * 0.8;
+    const endX = isMobile ? -window.innerWidth * 0.95 : -window.innerWidth * 0.8;
+    const stripLength = (entranceCount - 1) * spacing;
+    const travelDistance = stripLength + startX - endX;
     const state = { progress: 0 };
 
-    // 120 张照片组成一整条横向胶片，整体连续地从右向左快速经过屏幕。
+    // 入场阶段使用 50 张大图组成连续胶片带，全部从右向左经过屏幕中央。
     for (let i = 0; i < objects.length; i++) {
         const object = objects[i];
-        object.visible = true;
+        object.visible = i < entranceCount;
         object.element.style.width = cardWidth;
         object.element.style.height = cardHeight;
-        object.element.dataset.currentImageIndex = i + 1;
-        object.element.style.backgroundImage = `url(\"assets/images/thumbs/${i + 1}.webp\")`;
         object.rotation.set(0, 0, 0);
+        object.scale.set(1, 1, 1);
+        if (i < entranceCount) {
+            object.element.dataset.currentImageIndex = i + 1;
+            object.element.style.backgroundImage = `url(\"assets/images/thumbs/${i + 1}.webp\")`;
+        }
     }
 
     const updateStrip = () => {
         const offset = state.progress * travelDistance;
-        for (let i = 0; i < objects.length; i++) {
+        for (let i = 0; i < entranceCount; i++) {
             const object = objects[i];
-            const x = startX + i * stripSpacing - offset;
+            const x = startX + i * spacing - offset;
             const distance = Math.abs(x);
-            // 每张图片经过中央时平滑放大，离开中央后再缩小。
-            const focus = Math.max(0, 1 - distance / (stripSpacing * 1.25));
-            const scale = 0.72 + focus * 0.48;
-            object.position.set(x, 0, focus * 260);
+            // 中央卡片明显放大，左右卡片缩小，焦点始终锁定在屏幕中央。
+            const focus = Math.max(0, 1 - distance / (spacing * 1.45));
+            const scale = 0.82 + focus * 0.58;
+            object.position.set(x, 0, focus * 420);
             object.scale.set(scale, scale, scale);
         }
     };
@@ -499,9 +504,10 @@ function enterAnimation() {
         .easing(TWEEN.Easing.Linear.None)
         .onUpdate(updateStrip)
         .onComplete(() => {
-            // 整条照片展示完毕后，从左侧打散并汇聚成爱心。
+            // 50 张大图展示完成后，全部照片从左侧打散并汇聚成爱心。
             for (let i = 0; i < objects.length; i++) {
                 const object = objects[i];
+                object.visible = true;
                 object.element.style.width = '90px';
                 object.element.style.height = '120px';
                 object.position.set(-3600 - Math.random() * 1400, (Math.random() - 0.5) * 2200, (Math.random() - 0.5) * 1800);
