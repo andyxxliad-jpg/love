@@ -275,6 +275,7 @@ function init() {
     const trunkCount = 500;
     trunkBasePos = new Float32Array(trunkCount * 3);
     trunkTargetPos = new Float32Array(trunkCount * 3);
+    trunkTargetCol = new Float32Array(trunkCount * 3);
     for (let i = 0; i < trunkCount; i++) {
         trunkBasePos[i*3] = (Math.random() - .5) * 5000;
         trunkBasePos[i*3+1] = (Math.random() - .5) * 5000;
@@ -294,14 +295,6 @@ function init() {
             trunkTargetPos[i*3] = Math.cos(a) * r;
             trunkTargetPos[i*3+1] = 920 + Math.random() * 140;
             trunkTargetPos[i*3+2] = Math.sin(a) * r;
-            trunkTargetCol[i*3] = 1; trunkTargetCol[i*3+1] = .84; trunkTargetCol[i*3+2] = .45;
-        }
-    }
-    trunkTargetCol = new Float32Array(trunkCount * 3);
-    for (let i = 0; i < trunkCount; i++) {
-        if (i < 440) {
-            trunkTargetCol[i*3] = 1; trunkTargetCol[i*3+1] = .94; trunkTargetCol[i*3+2] = .82;
-        } else {
             trunkTargetCol[i*3] = 1; trunkTargetCol[i*3+1] = .84; trunkTargetCol[i*3+2] = .45;
         }
     }
