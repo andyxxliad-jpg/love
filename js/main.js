@@ -66,7 +66,7 @@ function startExperience() {
     }
     // 进入后稍候弹出操作提示
     setTimeout(() => {
-        if (!messagePlaying) showModal('tips-modal');
+        if (!messagePlaying && Object.assign(defaultSettings(), loadSettings()).tipsOn) showModal('tips-modal');
     }, 2600);
     // 首次进入：右下角显示双击提示
     setTimeout(() => {
@@ -90,18 +90,19 @@ let musicStarted = false;
 let messageTimerSet = false;
 function startMusic() {
     if (!audio || musicStarted) return;
+    if (!Object.assign(defaultSettings(), loadSettings()).musicOn) return;
     musicStarted = true;
     audio.muted = false;
     const p = audio.play();
     if (p && p.then) {
         p.then(() => {
-            if (!messageTimerSet) {
+            if (!messageTimerSet && Object.assign(defaultSettings(), loadSettings()).letterOn) {
                 messageTimerSet = true;
                 setTimeout(playMessage, 88000);
             }
         }).catch(() => { musicStarted = false; });
     } else {
-        if (!messageTimerSet) {
+        if (!messageTimerSet && Object.assign(defaultSettings(), loadSettings()).letterOn) {
             messageTimerSet = true;
             setTimeout(playMessage, 88000);
         }
@@ -468,6 +469,7 @@ function init() {
             const dy = Math.abs(e.clientY - pointerDownPos.y);
             if (dx < 5 && dy < 5) {
                 if (suppressPhotoClick) return;
+                if (!Object.assign(defaultSettings(), loadSettings()).photoZoomOn) return;
                 document.getElementById('enlarged-photo').src = `assets/images/${imgIndex}.webp`;
                 showModal('photo-modal');
             }
@@ -1214,12 +1216,13 @@ window.addEventListener('pointerdown', (e) => {
     lastTapY = e.clientY;
     clearTimeout(tapTimer);
     tapTimer = setTimeout(() => {
+        const cfg = Object.assign(defaultSettings(), loadSettings());
         if (tapCount >= 5) {
-            showNamePermanently();
+            if (cfg.nameTapOn) showNamePermanently();
         } else if (tapCount >= 3) {
-            cameraTour();
+            if (cfg.tripleTapOn) cameraTour();
         } else if (tapCount === 2) {
-            switchShape();
+            if (cfg.doubleTapOn) switchShape();
         }
         tapCount = 0;
     }, 380);
@@ -1306,10 +1309,12 @@ function saveSettings(s) {
     localStorage.setItem('consoleSettings', JSON.stringify(s));
 }
 function defaultSettings() {
-    return { announcementOn: false, announcementText: '', testBtnOn: true, calendarOn: false, calendarEvents: [] };
+    return { announcementOn: false, announcementText: '', testBtnOn: true, calendarOn: false, calendarEvents: [], maintenanceOn: false, musicOn: true, doubleTapOn: true, tripleTapOn: true, letterOn: true, tipsOn: true, photoZoomOn: true, nameTapOn: true };
 }
 function applySettings() {
     const s = Object.assign(defaultSettings(), loadSettings());
+    const maint = document.getElementById('maintenance-overlay');
+    if (maint) maint.classList.toggle('show', s.maintenanceOn);
     const testBtn = document.getElementById('test-btn');
     if (testBtn) testBtn.style.display = s.testBtnOn ? 'block' : 'none';
     const fab = document.getElementById('calendar-fab');
