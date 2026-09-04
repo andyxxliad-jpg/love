@@ -256,10 +256,8 @@ function init() {
   rightMat = new THREE.MeshBasicMaterial({ map: null, transparent: false });
   leftPivot = new THREE.Group();
   leftPivot.rotation.order = 'YXZ';
-  leftPivot.rotation.z = -0.16;
   rightPivot = new THREE.Group();
   rightPivot.rotation.order = 'YXZ';
-  rightPivot.rotation.z = 0.16;
   leftMesh = new THREE.Mesh(pageGeo, leftMat);
   leftMesh.position.set(-PAGE_W/2, 0, -2);
   rightMesh = new THREE.Mesh(pageGeo, rightMat);
@@ -313,12 +311,23 @@ async function goToPage(newIndex) {
   newIndex = clamp(newIndex, 0, TOTAL_PAIRS-1);
   if (newIndex === pageIndex) return;
   busy = true;
+  // 保险：动画异常时 2.5 秒后强制解锁，避免卡死
+  const safety = setTimeout(() => {
+    if (busy) {
+      busy = false;
+      leftPivot.rotation.y = 0;
+      rightPivot.rotation.y = 0;
+    }
+  }, 2500);
   const forward = newIndex > pageIndex;
   const leftNo = newIndex*2+1, rightNo = newIndex*2+2;
   const [imgL, imgR] = await Promise.all([getImage(leftNo), getImage(rightNo)]);
   const texL = makePageTexture(imgL), texR = makePageTexture(imgR);
   const oldL = leftMat.map, oldR = rightMat.map;
   if (forward) {
+    // 下一页：右页带着新照片从右往左翻越，翻越中露出新左页
+    rightMat.map = texR; rightMat.needsUpdate = true;
+    if (oldR) oldR.dispose();
     let swapped = false;
     await new Promise(res => animateValue(700, p => {
       rightPivot.rotation.y = -Math.PI * p;
@@ -329,8 +338,10 @@ async function goToPage(newIndex) {
       }
     }, res));
     rightPivot.rotation.y = 0;
-    rightMat.map = texR; rightMat.needsUpdate = true;
   } else {
+    // 上一页：左页带着新照片从左往右翻回，翻越中露出新右页
+    leftMat.map = texL; leftMat.needsUpdate = true;
+    if (oldL) oldL.dispose();
     let swapped = false;
     await new Promise(res => animateValue(700, p => {
       leftPivot.rotation.y = Math.PI * p;
@@ -341,10 +352,10 @@ async function goToPage(newIndex) {
       }
     }, res));
     leftPivot.rotation.y = 0;
-    leftMat.map = texL; leftMat.needsUpdate = true;
   }
   if (oldL && oldL !== texL && leftMat.map !== oldL) oldL.dispose();
   if (oldR && oldR !== texR && rightMat.map !== oldR) oldR.dispose();
+  clearTimeout(safety);
   pageIndex = newIndex;
   $('page-ind').textContent = `第 ${newIndex+1} / ${TOTAL_PAIRS} 页`;
   busy = false;
