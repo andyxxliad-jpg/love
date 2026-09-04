@@ -425,9 +425,13 @@ function init() {
     }
     nameGeo.setAttribute('position', new THREE.BufferAttribute(namePos, 3));
     namePoints = new THREE.Points(nameGeo, new THREE.PointsMaterial({
-        size: 24, map: texture, transparent: true, opacity: 1,
+        size: 15, map: texture, transparent: true, opacity: 1,
         blending: THREE.AdditiveBlending, depthWrite: false }));
-    sceneWebGL.add(namePoints);
+    const nameGroup = new THREE.Group();
+    nameGroup.position.set(0, 920, 0);
+    nameGroup.scale.set(1.5, 1.5, 1.5);
+    nameGroup.add(namePoints);
+    sceneWebGL.add(nameGroup);
 
     rendererWebGL = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     rendererWebGL.setSize( window.innerWidth, window.innerHeight );
@@ -856,12 +860,12 @@ function sampleNameText(text, offsetX) {
     ctx.fillText(text, 200, 100);
     const data = ctx.getImageData(0, 0, 400, 200).data;
     const pts = [];
-    for (let y = 0; y < 200; y += 4) for (let x = 0; x < 400; x += 4) {
+    for (let y = 0; y < 200; y += 3) for (let x = 0; x < 400; x += 3) {
         const i = (y * 400 + x) * 4;
         if (data[i] > 150 && data[i+1] > 150 && data[i+2] > 150) {
-            pts.push((x / 400 - .5) * 400 + offsetX + (Math.random() - .5) * 16,
-                     (.5 - y / 200) * 290 + (Math.random() - .5) * 16,
-                     (Math.random() - .5) * 10);
+            pts.push((x / 400 - .5) * 560 + offsetX + (Math.random() - .5) * 12,
+                     (.5 - y / 200) * 380 + (Math.random() - .5) * 12,
+                     (Math.random() - .5) * 8);
         }
     }
     return pts;
@@ -872,9 +876,9 @@ function buildNameParticles() {
     pts.push(...sampleNameText('andy', -340));
     pts.push(...sampleNameText('陶陶', 340));
     // 中间：粒子排列成空心爱心轮廓
-    for (let t = 0; t < Math.PI * 2; t += 0.06) {
-        const hx = 16 * Math.pow(Math.sin(t), 3) * 13;
-        const hy = (13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t)) * 13;
+    for (let t = 0; t < Math.PI * 2; t += 0.04) {
+        const hx = 16 * Math.pow(Math.sin(t), 3) * 18;
+        const hy = (13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t)) * 18;
         pts.push(hx, hy, (Math.random() - .5) * 8);
     }
     return pts;
@@ -1015,7 +1019,7 @@ async function playMessage() {
         } else if (p < 0.8) {
             if (!nameShown) { showName(); nameShown = true; }
             const q = (p - 0.58) / 0.22;
-            camera.position.set(0, 0, 1700 - q * 350);
+            camera.position.set(0, 920, 1650 - q * 350);
         } else {
             if (nameShown) { scatterName(); nameShown = false; }
             const q = (p - 0.8) / 0.2;
@@ -1023,7 +1027,7 @@ async function playMessage() {
             const ang = q * Math.PI;
             camera.position.set(Math.cos(ang)*r, Math.sin(ang)*r, Math.sin(q*Math.PI)*300);
         }
-        controls.target.set(0, 0, 0);
+        controls.target.set(0, 920, 0);
         camera.lookAt(controls.target);
     }, 16);
     // 图案每秒轮播（带切换动画）
