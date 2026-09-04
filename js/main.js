@@ -448,211 +448,77 @@ function init() {
 
     window.addEventListener( 'resize', onWindowResize );
 
-    const changeShape = (target) => { cancelBookEntrance(); transform(target, 1500); };
-    document.getElementById('btn-heart').addEventListener('click', () => changeShape(targets.heart));
-    document.getElementById('btn-sphere').addEventListener('click', () => changeShape(targets.sphere));
-    document.getElementById('btn-helix').addEventListener('click', () => changeShape(targets.helix));
-    document.getElementById('btn-grid').addEventListener('click', () => changeShape(targets.grid));
-}
-
-let activeBook = null;
-let entranceCancelled = false;
-let entranceRunId = 0;
-
-function bookImage(index) {
-    return new Promise(resolve => {
-        const full = `assets/images/${index}.webp`;
-        const fallback = `assets/images/thumbs/${index}.webp`;
-        const image = new Image();
-        image.decoding = 'async';
-        let finished = false;
-        const done = (url) => {
-            if (finished) return;
-            finished = true;
-            resolve(url);
-        };
-        image.onload = () => {
-            if (image.decode) image.decode().catch(() => {}).finally(() => done(full));
-            else done(full);
-        };
-        image.onerror = () => {
-            const backup = new Image();
-            backup.onload = () => done(fallback);
-            backup.onerror = () => done('');
-            backup.src = fallback;
-        };
-        image.src = full;
-    });
+    document.getElementById('btn-heart').addEventListener('click', () => transform(targets.heart, 1500));
+    document.getElementById('btn-sphere').addEventListener('click', () => transform(targets.sphere, 1500));
+    document.getElementById('btn-helix').addEventListener('click', () => transform(targets.helix, 1500));
+    document.getElementById('btn-grid').addEventListener('click', () => transform(targets.grid, 1500));
 }
 
 function enterAnimation() {
-    cancelBookEntrance();
     TWEEN.removeAll();
-    entranceCancelled = false;
-    const runId = ++entranceRunId;
     const previousAutoRotate = controls.autoRotate;
-    const previousEnabled = controls.enabled;
-    const savedCamera = camera.position.clone();
-    const savedTarget = controls.target.clone();
     controls.autoRotate = false;
-    controls.enabled = true;
+    const totalDuration = 5500;
+    const stripSpacing = window.innerWidth <= 768 ? 220 : 300;
+    const cardWidth = window.innerWidth <= 768 ? '150px' : '190px';
+    const cardHeight = window.innerWidth <= 768 ? '200px' : '250px';
+    const startX = window.innerWidth <= 768 ? 780 : 1100;
+    const endMargin = window.innerWidth <= 768 ? 900 : 1250;
+    const stripLength = (objects.length - 1) * stripSpacing;
+    const travelDistance = stripLength + startX + endMargin;
+    const state = { progress: 0 };
 
-    const pageCount = 6;
-    const isMobile = window.innerWidth <= 768;
-    const pageWidth = isMobile ? 430 : 600;
-    const pageHeight = isMobile ? 600 : 820;
-    const pageImages = Array.from({ length: pageCount }, (_, i) => i + 1);
-    const book = new THREE.Group();
-    book.position.set(0, 0, -260);
-    book.rotation.set(THREE.MathUtils.degToRad(-7), THREE.MathUtils.degToRad(-10), 0);
-    book.scale.set(.58, .58, .58);
-    sceneCSS.add(book);
-    activeBook = { book, previousAutoRotate, previousEnabled, savedCamera, savedTarget, runId };
-
-    const makePanel = (className, width, height) => {
-        const panel = document.createElement('div');
-        panel.className = className;
-        panel.style.width = `${width}px`;
-        panel.style.height = `${height}px`;
-        return panel;
-    };
-    const makePage = (url, index) => {
-        const hinge = new THREE.Object3D();
-        hinge.position.set(0, 0, 34 - index * 2);
-        const paper = makePanel('book3d-paper', pageWidth, pageHeight);
-        const front = makePanel('book3d-paper-face book3d-paper-front', pageWidth, pageHeight);
-        const back = makePanel('book3d-paper-face book3d-paper-back', pageWidth, pageHeight);
-        if (url) {
-            front.style.backgroundImage = `url('${url}')`;
-            back.style.backgroundImage = `url('${url}')`;
-        }
-        paper.appendChild(front);
-        paper.appendChild(back);
-        const page = new THREE.CSS3DObject(paper);
-        page.position.set(pageWidth / 2, 0, 0);
-        hinge.add(page);
-        book.add(hinge);
-        return { hinge, paper };
-    };
-
-    const baseLeft = new THREE.CSS3DObject(makePanel('book3d-base book3d-base-left', pageWidth, pageHeight));
-    baseLeft.position.set(-pageWidth / 2, 0, -25);
-    book.add(baseLeft);
-    const baseRight = new THREE.CSS3DObject(makePanel('book3d-base book3d-base-right', pageWidth, pageHeight));
-    baseRight.position.set(pageWidth / 2, 0, -25);
-    book.add(baseRight);
-    const spine = new THREE.CSS3DObject(makePanel('book3d-spine', 16, pageHeight + 42));
-    spine.position.set(0, 0, 48);
-    book.add(spine);
-    const leftCover = new THREE.CSS3DObject(makePanel('book3d-cover book3d-cover-left', pageWidth, pageHeight));
-    leftCover.position.set(-pageWidth / 2, 0, 42);
-    book.add(leftCover);
-    const coverHinge = new THREE.Object3D();
-    coverHinge.position.set(0, 0, 52);
-    const rightCover = new THREE.CSS3DObject(makePanel('book3d-cover book3d-cover-right', pageWidth, pageHeight));
-    rightCover.position.set(pageWidth / 2, 0, 0);
-    coverHinge.add(rightCover);
-    book.add(coverHinge);
-
-    Promise.all(pageImages.map(bookImage)).then(urls => {
-        if (entranceCancelled || !activeBook || activeBook.runId !== runId) return;
-        const pages = urls.map((url, index) => makePage(url, index));
-        pages.forEach((page, index) => {
-            page.paper.style.zIndex = String(60 - index);
-            page.hinge.rotation.y = 0;
-        });
-        book.visible = true;
-        new TWEEN.Tween(book.scale).to({x: 1, y: 1, z: 1}, 800).easing(TWEEN.Easing.Cubic.Out).start();
-        new TWEEN.Tween(book.rotation).to({x: THREE.MathUtils.degToRad(-3), y: 0, z: 0}, 800).easing(TWEEN.Easing.Cubic.Out).start();
-        new TWEEN.Tween(coverHinge.rotation).to({y: -Math.PI * .9}, 800).delay(600).easing(TWEEN.Easing.Cubic.InOut).start();
-        flipBookPage(pageCount, pages, 0, book, runId, previousAutoRotate);
-    });
-}
-
-function flipBookPage(pageCount, pages, index, book, runId, previousAutoRotate) {
-    if (entranceCancelled || !activeBook || activeBook.runId !== runId) return;
-    if (index < pageCount) {
-        const page = pages[index];
-        new TWEEN.Tween(page.hinge.rotation)
-            .to({y: -Math.PI}, 820)
-            .delay(index === 0 ? 500 : 140)
-            .easing(TWEEN.Easing.Cubic.InOut)
-            .onUpdate(() => {
-                if (page.hinge.rotation.y < -Math.PI * .5) page.paper.style.zIndex = String(8 + index);
-            })
-            .onComplete(() => flipBookPage(pageCount, pages, index + 1, book, runId, previousAutoRotate))
-            .start();
-        return;
-    }
-    setTimeout(() => {
-        if (entranceCancelled || !activeBook || activeBook.runId !== runId) return;
-        const state = activeBook;
-        new TWEEN.Tween(camera.position).to({x: 0, y: 0, z: 620}, 900).easing(TWEEN.Easing.Cubic.InOut).start();
-        new TWEEN.Tween(book.scale).to({x: 2.15, y: 2.15, z: 2.15}, 900).easing(TWEEN.Easing.Cubic.InOut).start();
-        setTimeout(() => {
-            if (!activeBook || activeBook.runId !== runId) return;
-            finishBookEntrance(state);
-            launchHeartFromBook(previousAutoRotate, null);
-        }, 1050);
-    }, 350);
-}
-
-function finishBookEntrance(bookState) {
-    if (!bookState) return;
-    entranceCancelled = true;
-    entranceRunId++;
-    TWEEN.removeAll();
-    bookState.book.visible = false;
-    sceneCSS.remove(bookState.book);
-    camera.position.copy(bookState.savedCamera);
-    controls.target.copy(bookState.savedTarget);
-    controls.enabled = bookState.previousEnabled;
-    controls.autoRotate = bookState.previousAutoRotate;
-    controls.update();
-    document.getElementById('main-ui').style.opacity = '1';
-    document.getElementById('main-ui').style.pointerEvents = 'none';
-    controlsUI.classList.remove('hidden');
-    rendererCSS.render(sceneCSS, camera);
-    activeBook = null;
-}
-
-function cancelBookEntrance() {
-    if (!activeBook) return false;
-    const state = activeBook;
-    finishBookEntrance(state);
-    objects.forEach(object => { object.visible = true; });
-    return true;
-}
-
-function launchHeartFromBook(previousAutoRotate, unusedBookStage) {
-    TWEEN.removeAll();
-    controls.enabled = false;
+    // 120 张照片组成一整条横向胶片，整体连续地从右向左快速经过屏幕。
     for (let i = 0; i < objects.length; i++) {
         const object = objects[i];
-        const distance = 3000 + Math.random() * 1600;
-        const side = i % 4;
         object.visible = true;
-        object.element.style.width = '90px';
-        object.element.style.height = '120px';
-        if (side === 0) object.position.set(-distance, (Math.random() - .5) * 2600, (Math.random() - .5) * 1600);
-        if (side === 1) object.position.set(distance, (Math.random() - .5) * 2600, (Math.random() - .5) * 1600);
-        if (side === 2) object.position.set((Math.random() - .5) * 3600, distance * .55, (Math.random() - .5) * 1600);
-        if (side === 3) object.position.set((Math.random() - .5) * 3600, -distance * .55, (Math.random() - .5) * 1600);
-        object.rotation.set(Math.random() * Math.PI * 2, Math.random() * Math.PI * 2, Math.random() * Math.PI * 2);
-        object.scale.set(.72, .72, .72);
+        object.element.style.width = cardWidth;
+        object.element.style.height = cardHeight;
+        object.element.dataset.currentImageIndex = i + 1;
+        object.element.style.backgroundImage = `url(\"assets/images/thumbs/${i + 1}.webp\")`;
+        object.rotation.set(0, 0, 0);
     }
-    transform(targets.heart, 2200);
-    setTimeout(() => {
-        controls.autoRotate = previousAutoRotate;
-        controls.enabled = true;
-        controlsUI.classList.remove('hidden');
-        startFullPhotoLoading();
-    }, 4800);
+
+    const updateStrip = () => {
+        const offset = state.progress * travelDistance;
+        for (let i = 0; i < objects.length; i++) {
+            const object = objects[i];
+            const x = startX + i * stripSpacing - offset;
+            const distance = Math.abs(x);
+            // 每张图片经过中央时平滑放大，离开中央后再缩小。
+            const focus = Math.max(0, 1 - distance / (stripSpacing * 1.25));
+            const scale = 0.72 + focus * 0.48;
+            object.position.set(x, 0, focus * 260);
+            object.scale.set(scale, scale, scale);
+        }
+    };
+
+    updateStrip();
+    new TWEEN.Tween(state)
+        .to({ progress: 1 }, totalDuration)
+        .easing(TWEEN.Easing.Linear.None)
+        .onUpdate(updateStrip)
+        .onComplete(() => {
+            // 整条照片展示完毕后，从左侧打散并汇聚成爱心。
+            for (let i = 0; i < objects.length; i++) {
+                const object = objects[i];
+                object.element.style.width = '90px';
+                object.element.style.height = '120px';
+                object.position.set(-3600 - Math.random() * 1400, (Math.random() - 0.5) * 2200, (Math.random() - 0.5) * 1800);
+                object.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+                object.scale.set(0.72, 0.72, 0.72);
+            }
+            transform(targets.heart, 2200);
+            setTimeout(() => {
+                controls.autoRotate = previousAutoRotate;
+                startFullPhotoLoading();
+            }, 2500);
+        })
+        .start();
 }
 
 function transform( targets, duration ) {
     TWEEN.removeAll();
-    controls.enabled = false;
     for ( let i = 0; i < objects.length; i ++ ) {
         const object = objects[ i ];
         const target = targets[ i ];
@@ -673,7 +539,6 @@ function transform( targets, duration ) {
             .easing( TWEEN.Easing.Exponential.InOut )
             .start();
     }
-    setTimeout(() => { controls.enabled = true; }, duration * 2 + 250);
 }
 
 function onWindowResize() {
@@ -707,6 +572,7 @@ if (!isFirstTime) {
     document.getElementById('welcome-screen').style.display = 'none';
     
     setTimeout(() => {
+        document.getElementById('main-ui').style.opacity = '1';
         document.getElementById('main-ui').style.pointerEvents = 'none';
         
         const waitForThumbs = () => {
