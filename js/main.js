@@ -46,12 +46,7 @@ function preloadAllPhotos() {
                 const image = new Image();
                 image.decoding = 'async';
                 image.onload = () => {
-                    const applyImage = () => {
-                        photoElements.forEach(item => {
-                            if (item.index === index) item.element.style.backgroundImage = `url('assets/images/${index}.webp')`;
-                        });
-                    };
-                    const done = () => { applyImage(); resolve(); };
+                    const done = () => resolve();
                     if (image.decode) image.decode().catch(() => {}).finally(done);
                     else done();
                 };
