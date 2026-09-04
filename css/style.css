@@ -106,6 +106,7 @@ html, body {
 .letter-bg .modal-title { color: #222; font-size: 26px; margin-bottom: 20px; }
 .typewriter-content { font-size: 16px; line-height: 2.2; color: #444; min-height: 220px; }
 .typewriter-content::after { content: '|'; animation: blink 1s infinite; color: #ff8ca3; }
+.typewriter-content.typing::after { content: ''; animation: none; }
 .signature { text-align: right; margin-top: 35px; font-size: 24px; color: #ff8ca3; font-weight: bold; }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 
@@ -125,7 +126,8 @@ html, body {
 /* Letter shortcut and flicker-free letter rendering. */
 .letter-shortcut { position: absolute; top: 14px; right: 16px; width: 38px; height: 38px; padding: 0; border: 1px solid rgba(255,182,193,.48); border-radius: 50%; background: rgba(255,255,255,.12); color: #ffb4c5; font-size: 20px; line-height: 36px; cursor: pointer; pointer-events: auto; backdrop-filter: blur(5px); box-shadow: 0 0 14px rgba(255,140,163,.25); transition: transform .2s, background .2s; z-index: 20; }
 .letter-shortcut:active { transform: scale(.9); background: rgba(255,140,163,.35); }
-#letter-modal .modal-content { animation: none !important; transform: scale(1) !important; opacity: 1 !important; will-change: auto; }
+#letter-modal { background: rgba(5,2,10,.94); backdrop-filter: none; -webkit-backdrop-filter: none; }
+#letter-modal .modal-content { animation: none !important; transform: scale(1) !important; opacity: 1 !important; will-change: auto; transform: translateZ(0); backface-visibility: hidden; }
 #letter-modal .typewriter-content { overflow-wrap: break-word; white-space: pre-wrap; }
 #letter-modal .letter-bg { max-height: 74vh; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 #letter-modal .typewriter-content { min-height: 60vh; will-change: scroll-position; }
