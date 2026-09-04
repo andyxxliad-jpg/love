@@ -871,9 +871,9 @@ async function playMessage() {
         const raw = ((performance.now() - msgTourT0) / 14000) % 1;
         const e = raw < 0.5 ? 4*raw*raw*raw : 1 - Math.pow(-2*raw+2, 3)/2;
         const t = e * Math.PI * 2;
-        // 镜头竖着围绕照片圈（XY 平面），准心连续平滑指向照片
+        // 镜头竖着围绕照片圈，准心对准整片照片，缓慢扫动展示
         camera.position.set(Math.cos(t)*2050, Math.sin(t)*2050, 0);
-        controls.target.set(Math.cos(t)*1200, Math.sin(t)*1200, 0);
+        controls.target.set(0, 0, 0);
         camera.lookAt(controls.target);
     }, 16);
     // 图案每秒轮播（带切换动画）
@@ -990,10 +990,8 @@ function cameraTour() {
             // 爱心：镜头沿轮廓临摹，准心逐个指向爱心上的照片
             const x = 16 * Math.pow(Math.sin(t), 3) * 58;
             const y = (13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t)) * 58;
-            const x45 = 16 * Math.pow(Math.sin(t), 3) * 45;
-            const y45 = (13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t)) * 45;
             camera.position.set(x, y + 150, 620);
-            controls.target.set(x45, y45 + 150, 0);
+            controls.target.set(0, 150, 0);
         } else {
             // 其他形状：电影级环绕 + 俯仰呼吸，准心跟随形状
             camera.position.set(Math.cos(t)*2050, 180 + Math.sin(t*2.5)*340, Math.sin(t)*2050);
