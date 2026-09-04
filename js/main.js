@@ -1106,13 +1106,14 @@ function animate() {
     render();
 }
 
-let cssFrameSkip = 0;
+let webglFrameSkip = 0;
 function render() {
-    rendererWebGL.render( sceneWebGL, camera );
     if (tourPlaying || messagePlaying) {
-        cssFrameSkip++;
-        if (cssFrameSkip % 2 === 0) rendererCSS.render( sceneCSS, camera );
+        webglFrameSkip++;
+        if (webglFrameSkip % 2 === 0) rendererWebGL.render( sceneWebGL, camera );
+        rendererCSS.render( sceneCSS, camera );
     } else {
+        rendererWebGL.render( sceneWebGL, camera );
         rendererCSS.render( sceneCSS, camera );
     }
 }
