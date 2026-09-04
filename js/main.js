@@ -27,6 +27,62 @@ const welcomeScreen = document.getElementById('welcome-screen');
 const mainUI = document.getElementById('main-ui');
 let audio = document.getElementById('bgm');
 
+// 图片采用渐进式加载，避免首屏同时解码 120 张大图造成动画卡顿。
+const imageCache = new Map();
+const imageQueue = [];
+let imageQueueRunning = false;
+
+function loadPhotoImage(index) {
+    if (imageCache.has(index)) return imageCache.get(index);
+    const promise = new Promise((resolve, reject) => {
+        const image = new Image();
+        image.decoding = 'async';
+        image.onload = () => {
+            const url = `assets/images/${index}.png`;
+            objects.forEach((object, objectIndex) => {
+                if (((objectIndex % totalUploadedPhotos) + 1) === index) {
+                    object.element.style.backgroundImage = `url('${url}')`;
+                }
+            });
+            resolve(image);
+        };
+        image.onerror = reject;
+        image.src = `assets/images/${index}.png`;
+    });
+    imageCache.set(index, promise);
+    return promise;
+}
+
+function queuePhotoRange(start, end) {
+    for (let index = start; index <= end; index++) imageQueue.push(index);
+    runPhotoQueue();
+}
+
+function runPhotoQueue() {
+    if (imageQueueRunning || imageQueue.length === 0) return;
+    imageQueueRunning = true;
+    const index = imageQueue.shift();
+    loadPhotoImage(index).catch(() => {}).finally(() => {
+        imageQueueRunning = false;
+        const schedule = window.requestIdleCallback || ((callback) => setTimeout(callback, 120));
+        schedule(() => runPhotoQueue());
+    });
+}
+
+function startProgressivePhotoLoading() {
+    const firstBatch = Math.min(8, totalUploadedPhotos);
+    queuePhotoRange(1, firstBatch);
+    let next = firstBatch + 1;
+    const batchTimer = setInterval(() => {
+        if (next > totalUploadedPhotos) {
+            clearInterval(batchTimer);
+            return;
+        }
+        queuePhotoRange(next, Math.min(next + 7, totalUploadedPhotos));
+        next += 8;
+    }, 900);
+}
+
 btnLocation.addEventListener('click', () => {
     weatherText.innerHTML = "正在感应你的位置... 🛰️";
     btnLocation.style.display = 'none';
@@ -73,6 +129,7 @@ btnEnter.addEventListener('click', () => {
         
         audio.play().catch(e => console.log('Audio autoplay blocked:', e));
         enterAnimation();
+        startProgressivePhotoLoading();
 
         controlsUI.classList.remove('hidden');
         uiFadeTimeout = setTimeout(() => { controlsUI.classList.add('hidden'); }, 3000);
@@ -203,7 +260,7 @@ function init() {
     camera.position.z = 2800; 
     
     sceneWebGL = new THREE.Scene();
-    const particleCount = 3500;
+    const particleCount = window.innerWidth <= 768 ? 1400 : 2400;
     const geometry = new THREE.BufferGeometry();
     const positions = new Float32Array(particleCount * 3);
     for(let i=0; i<particleCount*3; i++) {
@@ -234,7 +291,10 @@ function init() {
     particles = new THREE.Points(geometry, pMaterial);
     sceneWebGL.add(particles);
 
-    rendererWebGL = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    rendererWebGL = new THREE.WebGLRenderer({
+        alpha: true,
+        antialias: window.devicePixelRatio < 2
+    });
     rendererWebGL.setSize( window.innerWidth, window.innerHeight );
     document.getElementById('webgl-container').appendChild( rendererWebGL.domElement );
 
@@ -245,7 +305,9 @@ function init() {
         element.className = 'element';
         
         let imgIndex = (i % totalUploadedPhotos) + 1;
-        element.style.backgroundImage = `url('assets/images/${imgIndex}.png')`;
+        // 背景图不在初始化阶段加载，交给渐进式队列处理。
+        element.dataset.imageIndex = imgIndex;
+        element.style.backgroundColor = 'rgba(255, 140, 163, 0.08)';
         
         let pointerDownPos = { x: 0, y: 0 };
         element.addEventListener('pointerdown', (e) => {
@@ -255,12 +317,14 @@ function init() {
             const dx = Math.abs(e.clientX - pointerDownPos.x);
             const dy = Math.abs(e.clientY - pointerDownPos.y);
             if (dx < 5 && dy < 5) {
-                document.getElementById('enlarged-photo').src = `assets/images/${imgIndex}.png`;
+                const enlargedPhoto = document.getElementById('enlarged-photo');
+                enlargedPhoto.src = `assets/images/${imgIndex}.png`;
                 showModal('photo-modal');
             }
         });
 
         const objectCSS = new THREE.CSS3DObject( element );
+        objectCSS.element = element;
         objectCSS.position.x = 6000;
         objectCSS.position.y = 0;
         objectCSS.position.z = 0;
@@ -379,7 +443,7 @@ function enterAnimation() {
         tweenPos2.start();
         tweenRot2.start();
     }
-    new TWEEN.Tween(this).to({}, 6000).onUpdate(render).start();
+    // animate() 已经统一负责 render，避免动画期间重复渲染。
 }
 
 function transform( targets, duration ) {
@@ -398,7 +462,7 @@ function transform( targets, duration ) {
             .easing( TWEEN.Easing.Exponential.InOut )
             .start();
     }
-    new TWEEN.Tween( this ).to( {}, duration * 2 ).onUpdate( render ).start();
+    // animate() 已经统一负责 render，避免变形时重复渲染。
 }
 
 function onWindowResize() {
@@ -437,6 +501,7 @@ if (!isFirstTime) {
         document.getElementById('main-ui').style.pointerEvents = 'none';
         
         enterAnimation();
+        startProgressivePhotoLoading();
         startQuotesCycle();
 
         const audioTip = document.createElement('div');
