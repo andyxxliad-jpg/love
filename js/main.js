@@ -117,7 +117,7 @@ btnEnter.addEventListener('click', () => {
         
         audio.play().catch(e => console.log('Audio autoplay blocked:', e));
         enterAnimation();
-        startProgressivePhotoLoading;
+        startProgressivePhotoLoading();
 
         controlsUI.classList.remove('hidden');
         uiFadeTimeout = setTimeout(() => { controlsUI.classList.add('hidden'); }, 3000);
