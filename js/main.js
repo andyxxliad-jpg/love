@@ -911,6 +911,10 @@ function showName() {
         if (p >= 1) { clearInterval(nameTimer); nameTimer = null; }
     }, 16);
 }
+function showNamePermanently() {
+    // 名字粒子汇聚后常显，不再散开
+    showName();
+}
 function scatterName() {
     nameVisible = false;
     if (nameTimer) clearInterval(nameTimer);
@@ -1178,7 +1182,9 @@ window.addEventListener('pointerdown', (e) => {
     lastTapY = e.clientY;
     clearTimeout(tapTimer);
     tapTimer = setTimeout(() => {
-        if (tapCount >= 3) {
+        if (tapCount >= 5) {
+            showNamePermanently();
+        } else if (tapCount >= 3) {
             cameraTour();
         } else if (tapCount === 2) {
             switchShape();
