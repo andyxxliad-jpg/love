@@ -38,31 +38,47 @@ function updatePhotoLoading() {
 }
 
 function preloadAllPhotos() {
-    const trackingImages = [];
+    const imageUrls = [];
     for (let index = 1; index <= totalUploadedPhotos; index++) {
-        trackingImages.push(new Promise(resolve => {
-            const image = new Image();
-            image.onload = resolve;
-            image.onerror = resolve;
-            image.src = `assets/images/${index}.webp`;
-        }));
+        imageUrls.push(`assets/images/${index}.webp`);
     }
+    const loaded = new Array(totalUploadedPhotos).fill(false);
     let completed = 0;
-    trackingImages.forEach(promise => {
-        promise.then(() => {
+    const startLoader = (url) => {
+        const image = new Image();
+        image.onload = () => finish(url);
+        image.onerror = () => finish(url);
+        image.src = url;
+    };
+    const finish = (url) => {
+        const index = imageUrls.indexOf(url);
+        if (index >= 0 && !loaded[index]) {
+            loaded[index] = true;
             completed++;
             photosLoaded = completed;
             updatePhotoLoading();
-            if (completed >= totalUploadedPhotos) {
-                photosReady = true;
-                const status = document.getElementById('photo-loading-status');
-                if (status) status.textContent = '照片准备完成';
-                const screen = document.getElementById('photo-loading-screen');
-                if (screen) screen.classList.add('hidden');
-                autoOpenLetter();
-            }
-        });
-    });
+        }
+        if (completed >= totalUploadedPhotos) {
+            photosReady = true;
+            const status = document.getElementById('photo-loading-status');
+            if (status) status.textContent = '照片准备完成';
+            const screen = document.getElementById('photo-loading-screen');
+            if (screen) screen.classList.add('hidden');
+            autoOpenLetter();
+        }
+    };
+    // 并发限制为 6，进度仍然按完成数量递增，避免全部图片同时抢占网络。
+    const CONCURRENCY = 6;
+    let cursor = 0;
+    const next = () => {
+        if (cursor >= imageUrls.length) return;
+        const url = imageUrls[cursor++];
+        const image = new Image();
+        image.onload = () => { finish(url); next(); };
+        image.onerror = () => { finish(url); next(); };
+        image.src = url;
+    };
+    for (let i = 0; i < Math.min(CONCURRENCY, imageUrls.length); i++) next();
 }
 
 function tryStartMusic() {
@@ -409,15 +425,29 @@ function init() {
 
 function enterAnimation() {
     TWEEN.removeAll();
+    const duration = 1600;
     for (let i = 0; i < objects.length; i++) {
         const object = objects[i];
         const target = targets.heart[i];
-        object.position.copy(target.position);
-        object.rotation.copy(target.rotation);
-        object.scale.set(1, 1, 1);
         object.visible = true;
+        object.scale.set(1, 1, 1);
+        object.position.set(
+            4000 + Math.random() * 2000,
+            (Math.random() - 0.5) * 2400,
+            (Math.random() - 0.5) * 2000
+        );
+        object.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+        new TWEEN.Tween(object.position)
+            .to({ x: target.position.x, y: target.position.y, z: target.position.z }, duration + Math.random() * 500)
+            .easing(TWEEN.Easing.Exponential.InOut)
+            .delay(i * 8)
+            .start();
+        new TWEEN.Tween(object.rotation)
+            .to({ x: target.rotation.x, y: target.rotation.y, z: target.rotation.z }, duration + Math.random() * 500)
+            .easing(TWEEN.Easing.Exponential.InOut)
+            .delay(i * 8)
+            .start();
     }
-    render();
 }
 
 function transform( targets, duration ) {
@@ -478,20 +508,6 @@ if (!isFirstTime) {
         startQuotesCycle();
         autoOpenLetter();
 
-        const audioTip = document.createElement('div');
-        audioTip.innerText = "点击屏幕播放我们的回忆原声 ✨";
-        audioTip.style.cssText = "position:absolute; top:20%; left:50%; transform:translateX(-50%); z-index:100; color:#ff8ca3; font-family:'ZCOOL KuaiLe', sans-serif; font-size:16px; text-shadow:0 2px 5px rgba(0,0,0,0.5); pointer-events:none; animation: blink 2s infinite;";
-        document.body.appendChild(audioTip);
-
-        const playMusicOnTouch = () => {
-            audio.play().catch(e => console.log(e));
-            if(audioTip) audioTip.remove();
-            document.removeEventListener('click', playMusicOnTouch);
-            document.removeEventListener('touchstart', playMusicOnTouch);
-        };
-        document.addEventListener('click', playMusicOnTouch);
-        document.addEventListener('touchstart', playMusicOnTouch, {passive:true});
-        
         controlsUI.classList.remove('hidden');
         uiFadeTimeout = setTimeout(() => { controlsUI.classList.add('hidden'); }, 3000);
     }, 100);
