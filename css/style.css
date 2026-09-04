@@ -118,9 +118,3 @@ html, body {
 /* 双击提示（右下角，仅首次显示） */
 #double-tap-hint { position: fixed; right: 18px; bottom: 14vh; z-index: 3200; color: #ffd7e6; font: 18px 'ZCOOL KuaiLe', 'PingFang SC', sans-serif; background: rgba(255,255,255,.14); border: 1px solid rgba(255,170,200,.55); padding: 13px 22px; border-radius: 26px; text-shadow: 0 0 10px rgba(255,150,190,.9); letter-spacing: 1px; pointer-events: none; display: none; animation: hintPulse 1.5s ease-in-out infinite; }
 @keyframes hintPulse { 0%, 100% { opacity: .75; transform: scale(1); } 50% { opacity: 1; transform: scale(1.06); } }
-
-/* 首次进入：长按屏幕 */
-#hold-overlay { position: fixed; inset: 0; z-index: 5000; display: none; align-items: center; justify-content: center; touch-action: none; -webkit-user-select: none; user-select: none; }
-#hold-overlay.show { display: flex; }
-#hold-pink { position: absolute; left: 50%; top: 50%; width: 150vmax; height: 150vmax; transform: translate(-50%, -50%) scale(0); border-radius: 50%; background: rgba(255,182,193,0.4); pointer-events: none; }
-#hold-hint { position: relative; z-index: 2; font: 44px 'ZCOOL KuaiLe','PingFang SC',sans-serif; color: #fff; letter-spacing: 6px; text-shadow: 0 0 26px rgba(255,140,163,.95); pointer-events: none; }
