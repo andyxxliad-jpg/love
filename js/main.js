@@ -859,8 +859,11 @@ async function playMessage() {
         const raw = ((performance.now() - msgTourT0) / 14000) % 1;
         const e = raw < 0.5 ? 4*raw*raw*raw : 1 - Math.pow(-2*raw+2, 3)/2;
         const t = e * Math.PI * 2;
-        camera.position.set(Math.cos(t)*2350, 220 + Math.sin(t*2.2)*240, Math.sin(t)*2350);
-        controls.target.set(0, 0, 0);
+        // 镜头贴着照片圈绕行，逐个注视照片
+        const lookX = Math.cos(t)*1200;
+        const lookY = Math.sin(t)*1200;
+        camera.position.set(Math.cos(t)*2050, 180 + Math.sin(t*2)*160, Math.sin(t)*2050);
+        controls.target.set(lookX, lookY, 0);
         camera.lookAt(controls.target);
     }, 16);
     // 图案每秒轮播（带切换动画）
