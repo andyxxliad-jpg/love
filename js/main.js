@@ -1218,6 +1218,8 @@ window.addEventListener('pointerdown', (e) => {
     tapTimer = setTimeout(() => {
         const cfg = Object.assign(defaultSettings(), loadSettings());
         if (tapCount >= 5) {
+            if (cfg.fiveTapOn && !messagePlaying) playMessage();
+        } else if (tapCount === 4) {
             if (cfg.nameTapOn) showNamePermanently();
         } else if (tapCount >= 3) {
             if (cfg.tripleTapOn) cameraTour();
@@ -1309,7 +1311,7 @@ function saveSettings(s) {
     localStorage.setItem('consoleSettings', JSON.stringify(s));
 }
 function defaultSettings() {
-    return { announcementOn: false, announcementText: '', testBtnOn: true, calendarOn: false, calendarEvents: [], maintenanceOn: false, musicOn: true, doubleTapOn: true, tripleTapOn: true, letterOn: true, tipsOn: true, photoZoomOn: true, nameTapOn: true };
+    return { announcementOn: false, announcementText: '', testBtnOn: true, calendarOn: false, calendarEvents: [], maintenanceOn: false, musicOn: true, doubleTapOn: true, tripleTapOn: true, letterOn: true, tipsOn: true, photoZoomOn: true, nameTapOn: true, fiveTapOn: true };
 }
 function applySettings() {
     const s = Object.assign(defaultSettings(), loadSettings());
@@ -1347,6 +1349,8 @@ function openConsolePanel() {
     document.getElementById('cfg-announce-text').value = s.announcementText || '';
     document.getElementById('cfg-testbtn').checked = s.testBtnOn;
     document.getElementById('cfg-calendar').checked = s.calendarOn;
+    document.getElementById('cfg-nametap').checked = s.nameTapOn;
+    document.getElementById('cfg-fivetap').checked = s.fiveTapOn;
     renderCalendar();
     document.getElementById('console-lock').classList.remove('show');
     document.getElementById('console-panel').classList.add('show');
@@ -1389,6 +1393,8 @@ document.getElementById('console-close').addEventListener('click', () => {
     s.announcementText = document.getElementById('cfg-announce-text').value;
     s.testBtnOn = document.getElementById('cfg-testbtn').checked;
     s.calendarOn = document.getElementById('cfg-calendar').checked;
+    s.nameTapOn = document.getElementById('cfg-nametap').checked;
+    s.fiveTapOn = document.getElementById('cfg-fivetap').checked;
     saveSettings(s);
     applySettings();
     document.getElementById('console-panel').classList.remove('show');
