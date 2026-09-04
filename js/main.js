@@ -181,6 +181,7 @@ btnEnter.addEventListener('click', () => {
         mainUI.style.pointerEvents = 'none';
         audio.play().catch(e => console.log('Audio autoplay blocked:', e));
         enterAnimation();
+        startFullPhotoLoading();
         controlsUI.classList.remove('hidden');
         uiFadeTimeout = setTimeout(() => { controlsUI.classList.add('hidden'); }, 3000);
         startQuotesCycle();
