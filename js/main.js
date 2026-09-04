@@ -27,13 +27,14 @@ const welcomeScreen = document.getElementById('welcome-screen');
 const mainUI = document.getElementById('main-ui');
 let audio = document.getElementById('bgm');
 
-// 入场动画只使用轻量预览图，高清图在动画开始后分批替换。
+// 先加载轻量预览图并显示进度；高清图在入场动画结束后替换。
 const imageCache = new Map();
 const photoElements = [];
 const MAX_IMAGE_LOADS = 3;
 let thumbsReady = false;
 let fullLoadingStarted = false;
 let thumbsLoaded = 0;
+let weatherReady = false;
 
 function setLoadingProgress() {
     const percent = Math.round((thumbsLoaded / totalUploadedPhotos) * 100);
@@ -43,14 +44,24 @@ function setLoadingProgress() {
     if (count) count.innerText = `预览照片准备中 ${thumbsLoaded} / ${totalUploadedPhotos}`;
 }
 
-function hideLoadingScreen() {
-    const screen = document.getElementById('loading-screen');
+function showEnterButtonWhenReady() {
+    if (!weatherReady || !thumbsReady) return;
     const status = document.getElementById('photo-loading-status');
     if (status) status.innerText = '相册准备完成，可以进入啦 ✨';
-    setTimeout(() => { if (screen) screen.classList.add('hidden'); }, 350);
+    btnEnter.style.display = 'inline-block';
+    btnEnter.disabled = false;
+    btnEnter.innerText = '去看我给你准备的惊喜 🚀';
+}
+
+function hideLoadingScreen() {
+    const screen = document.getElementById('loading-screen');
+    if (!screen) return;
+    screen.classList.add('hidden');
 }
 
 function preloadPhotoThumbnails() {
+    const startedAt = Date.now();
+    setLoadingProgress();
     let next = 1;
     const worker = async () => {
         while (next <= totalUploadedPhotos) {
@@ -71,9 +82,15 @@ function preloadPhotoThumbnails() {
         }
     };
     Promise.all(Array.from({length: MAX_IMAGE_LOADS}, worker)).then(() => {
+        thumbsLoaded = totalUploadedPhotos;
+        setLoadingProgress();
         thumbsReady = true;
-        hideLoadingScreen();
-        if (weatherReady) showEnterButtonWhenReady();
+        const elapsed = Date.now() - startedAt;
+        // Keep the progress screen visible briefly, even on a warm cache.
+        setTimeout(() => {
+            hideLoadingScreen();
+            showEnterButtonWhenReady();
+        }, Math.max(450, 900 - elapsed));
     });
 }
 
@@ -109,7 +126,8 @@ function startFullPhotoLoading() {
             try { await loadFullPhoto(index); } catch (error) { console.warn(`照片 ${index} 加载失败`, error); }
         }
     };
-    Promise.all(Array.from({length: MAX_IMAGE_LOADS}, worker));
+    // Wait until the entrance animation has finished before decoding large images.
+    setTimeout(() => Promise.all(Array.from({length: MAX_IMAGE_LOADS}, worker)), 3200);
 }
 
 btnLocation.addEventListener('click', () => {
@@ -163,7 +181,6 @@ btnEnter.addEventListener('click', () => {
         mainUI.style.pointerEvents = 'none';
         audio.play().catch(e => console.log('Audio autoplay blocked:', e));
         enterAnimation();
-        startFullPhotoLoading();
         controlsUI.classList.remove('hidden');
         uiFadeTimeout = setTimeout(() => { controlsUI.classList.add('hidden'); }, 3000);
         startQuotesCycle();
@@ -438,50 +455,20 @@ function init() {
 
 function enterAnimation() {
     TWEEN.removeAll();
+    const sceneContainer = document.getElementById('css-container');
     const previousAutoRotate = controls.autoRotate;
     controls.autoRotate = false;
-    const flyDuration = 1000;
-    
     for (let i = 0; i < objects.length; i++) {
         const obj = objects[i];
-        const targetHeart = targets.heart[i];
-        
-        obj.position.set(4000 + Math.random() * 2000, (Math.random() - 0.5) * 2000, (Math.random() - 0.5) * 2000);
-        obj.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
-
-        const randomX = (Math.random() - 0.5) * 1500;
-        const randomY = (Math.random() - 0.5) * 1500;
-        const randomZ = (Math.random() - 0.5) * 1500;
-
-        const delay1 = i * 20; 
-
-        const tweenPos1 = new TWEEN.Tween(obj.position)
-            .to({ x: randomX, y: randomY, z: randomZ }, flyDuration)
-            .easing(TWEEN.Easing.Cubic.Out)
-            .delay(delay1);
-
-        const tweenRot1 = new TWEEN.Tween(obj.rotation)
-            .to({ x: Math.random() * Math.PI, y: Math.random() * Math.PI, z: 0 }, flyDuration)
-            .delay(delay1);
-
-        const delay2 = 3200 + Math.random() * 800; 
-
-        const tweenPos2 = new TWEEN.Tween(obj.position)
-            .to({ x: targetHeart.position.x, y: targetHeart.position.y, z: targetHeart.position.z }, 2000)
-            .easing(TWEEN.Easing.Exponential.InOut)
-            .delay(delay2);
-
-        const tweenRot2 = new TWEEN.Tween(obj.rotation)
-            .to({ x: targetHeart.rotation.x, y: targetHeart.rotation.y, z: targetHeart.rotation.z }, 2000)
-            .easing(TWEEN.Easing.Exponential.InOut)
-            .delay(delay2);
-
-        tweenPos1.start();
-        tweenRot1.start();
-        tweenPos2.start();
-        tweenRot2.start();
+        const target = targets.heart[i];
+        obj.position.copy(target.position);
+        obj.rotation.copy(target.rotation);
     }
-    setTimeout(() => { controls.autoRotate = previousAutoRotate; }, 6500);
+    sceneContainer.classList.remove('photo-entering');
+    void sceneContainer.offsetWidth;
+    sceneContainer.classList.add('photo-entering');
+    setTimeout(() => { controls.autoRotate = previousAutoRotate; }, 3000);
+    render();
 }
 
 function transform( targets, duration ) {
@@ -511,17 +498,20 @@ function onWindowResize() {
     render();
 }
 
-function animate() {
-    requestAnimationFrame( animate );
-    TWEEN.update();
-    
+let lastCssRender = 0;
+function animate(now = 0) {
+    requestAnimationFrame(animate);
+    TWEEN.update(now);
     if (particles) {
         particles.rotation.y += 0.0008;
         particles.rotation.x += 0.0004;
     }
-    
-    controls.update(); 
-    render();
+    controls.update();
+    rendererWebGL.render(sceneWebGL, camera);
+    if (now - lastCssRender >= 33) {
+        rendererCSS.render(sceneCSS, camera);
+        lastCssRender = now;
+    }
 }
 
 function render() {
