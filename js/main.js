@@ -233,6 +233,12 @@ let ferrisBasePos, ferrisTargetPos, ferrisPoints, ferrisTargetCol;
 const isFirstTime = !localStorage.getItem('universeVisited_v14');
 const SHAPE_NAMES = [ 'heart', 'tree', 'ferris', 'galaxy', 'rose', 'firework', 'infinity', 'vortex' ];
 let messagePlaying = false;
+let tapCount = 0;
+let tapTimer = null;
+let tourPlaying = false;
+let tourTimer = null;
+let moveTimer = null;
+let decorTimer = null;
 let letterTextEl = null;
 let letterInnerEl = null;
 let letterObj = null;
@@ -1025,12 +1031,6 @@ function switchShape() {
 }
 let lastTapTime = 0, lastTapX = 0, lastTapY = 0;
 let suppressPhotoClick = false;
-let tapCount = 0;
-let tapTimer = null;
-let tourPlaying = false;
-let tourTimer = null;
-let moveTimer = null;
-let decorTimer = null;
 window.addEventListener('pointerdown', (e) => {
     if (messagePlaying || tourPlaying) return;
     if (e.target.closest && e.target.closest('.element')) return;
