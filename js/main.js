@@ -458,97 +458,63 @@ function enterAnimation() {
     TWEEN.removeAll();
     const previousAutoRotate = controls.autoRotate;
     controls.autoRotate = false;
-    const carouselCards = [objects[0], objects[1], objects[2]];
-    const sideX = 390;
-    const exitX = -1250;
-    const cardWidth = '170px';
-    const cardHeight = '225px';
-    let nextImage = 4;
+    const totalDuration = 5500;
+    const stripSpacing = window.innerWidth <= 768 ? 220 : 300;
+    const cardWidth = window.innerWidth <= 768 ? '150px' : '190px';
+    const cardHeight = window.innerWidth <= 768 ? '200px' : '250px';
+    const startX = window.innerWidth <= 768 ? 780 : 1100;
+    const endMargin = window.innerWidth <= 768 ? 900 : 1250;
+    const stripLength = (objects.length - 1) * stripSpacing;
+    const travelDistance = stripLength + startX + endMargin;
+    const state = { progress: 0 };
 
-    // 轮播阶段只显示三张照片：左边、中央、右边。
+    // 120 张照片组成一整条横向胶片，整体连续地从右向左快速经过屏幕。
     for (let i = 0; i < objects.length; i++) {
         const object = objects[i];
-        object.visible = i < 3;
+        object.visible = true;
+        object.element.style.width = cardWidth;
+        object.element.style.height = cardHeight;
+        object.element.dataset.currentImageIndex = i + 1;
+        object.element.style.backgroundImage = `url(\"assets/images/thumbs/${i + 1}.webp\")`;
         object.rotation.set(0, 0, 0);
-        if (i < 3) {
-            object.element.style.width = cardWidth;
-            object.element.style.height = cardHeight;
-        }
-        object.scale.set(1, 1, 1);
     }
 
-    const place = (object, x, scale, z) => {
-        object.position.set(x, 0, z || 0);
-        object.scale.set(scale, scale, scale);
-        object.rotation.set(0, 0, 0);
-    };
-    place(carouselCards[0], -sideX, 0.76, 0);
-    place(carouselCards[1], 0, 1.16, 220);
-    place(carouselCards[2], sideX, 0.76, 0);
-
-    const setCarouselImage = (object, index) => {
-        object.element.dataset.currentImageIndex = index;
-        object.element.style.backgroundImage = `url(\"assets/images/thumbs/${index}.webp\")`;
-    };
-
-    const beginHeart = () => {
-        // 120 张照片全部轮播展示完成后，才让全部卡片打散并汇聚成爱心。
+    const updateStrip = () => {
+        const offset = state.progress * travelDistance;
         for (let i = 0; i < objects.length; i++) {
             const object = objects[i];
-            object.visible = true;
-            object.element.style.width = '90px';
-            object.element.style.height = '120px';
-            object.position.set(-3600 - Math.random() * 1400, (Math.random() - 0.5) * 2200, (Math.random() - 0.5) * 1800);
-            object.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-            object.scale.set(0.72, 0.72, 0.72);
+            const x = startX + i * stripSpacing - offset;
+            const distance = Math.abs(x);
+            // 每张图片经过中央时平滑放大，离开中央后再缩小。
+            const focus = Math.max(0, 1 - distance / (stripSpacing * 1.25));
+            const scale = 0.72 + focus * 0.48;
+            object.position.set(x, 0, focus * 260);
+            object.scale.set(scale, scale, scale);
         }
-        transform(targets.heart, 2200);
-        setTimeout(() => {
-            controls.autoRotate = previousAutoRotate;
-            startFullPhotoLoading();
-        }, 5000);
     };
 
-    const advanceCarousel = () => {
-        if (nextImage > totalUploadedPhotos) {
-            setTimeout(beginHeart, 800);
-            return;
-        }
-
-        const left = carouselCards[0];
-        const center = carouselCards[1];
-        const right = carouselCards[2];
-        const state = { progress: 0 };
-        new TWEEN.Tween(state)
-            .to({ progress: 1 }, 280)
-            .easing(TWEEN.Easing.Cubic.InOut)
-            .onUpdate(() => {
-                const p = state.progress;
-                const smooth = p * p * (3 - 2 * p);
-                // 右边照片滑入中央并放大。
-                place(right, sideX * (1 - smooth), 0.76 + 0.40 * smooth, 220 * smooth);
-                // 中间照片滑向左边并缩小。
-                place(center, -sideX * smooth, 1.16 - 0.40 * smooth, 220 * (1 - smooth));
-                // 左边照片滑出屏幕。
-                place(left, -sideX + (exitX + sideX) * smooth, 0.76 - 0.18 * smooth, 0);
-            })
-            .onComplete(() => {
-                // 离场卡片立刻换成下一张，并放回右侧，等待下一轮进入。
-                setCarouselImage(left, nextImage++);
-                place(left, sideX, 0.76, 0);
-                carouselCards[0] = center;
-                carouselCards[1] = right;
-                carouselCards[2] = left;
-                advanceCarousel();
-            })
-            .start();
-    };
-
-    // 初始就是第 1、2、3 张；第 2 张在中央放大，第 3 张从右侧准备进入。
-    setCarouselImage(carouselCards[0], 1);
-    setCarouselImage(carouselCards[1], 2);
-    setCarouselImage(carouselCards[2], 3);
-    advanceCarousel();
+    updateStrip();
+    new TWEEN.Tween(state)
+        .to({ progress: 1 }, totalDuration)
+        .easing(TWEEN.Easing.Linear.None)
+        .onUpdate(updateStrip)
+        .onComplete(() => {
+            // 整条照片展示完毕后，从左侧打散并汇聚成爱心。
+            for (let i = 0; i < objects.length; i++) {
+                const object = objects[i];
+                object.element.style.width = '90px';
+                object.element.style.height = '120px';
+                object.position.set(-3600 - Math.random() * 1400, (Math.random() - 0.5) * 2200, (Math.random() - 0.5) * 1800);
+                object.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+                object.scale.set(0.72, 0.72, 0.72);
+            }
+            transform(targets.heart, 2200);
+            setTimeout(() => {
+                controls.autoRotate = previousAutoRotate;
+                startFullPhotoLoading();
+            }, 2500);
+        })
+        .start();
 }
 
 function transform( targets, duration ) {
@@ -585,7 +551,7 @@ function onWindowResize() {
 
 function animate(now = 0) {
     requestAnimationFrame(animate);
-    TWEEN.update(now);
+    TWEEN.update();
     if (particles) {
         particles.rotation.y += 0.0008;
         particles.rotation.x += 0.0004;
