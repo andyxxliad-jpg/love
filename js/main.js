@@ -9,6 +9,45 @@ function initShapeControls() {
             controlsUI.classList.toggle('open');
             shapeToggle.classList.toggle('open', controlsUI.classList.contains('open'));
         });
+        // 长按滑选：按钮展开后，滑动经过哪个形状就实时预览，松手确认。
+        let pressActive = false;
+        let lastPreview = null;
+        const getShapeTarget = (btn) => {
+            if (!btn) return null;
+            const id = btn.id;
+            if (id === 'btn-heart') return targets.heart;
+            if (id === 'btn-sphere') return targets.sphere;
+            if (id === 'btn-helix') return targets.helix;
+            if (id === 'btn-grid') return targets.grid;
+            return null;
+        };
+        shapeButtons.forEach(btn => {
+            btn.addEventListener('pointerdown', (e) => {
+                pressActive = true;
+                btn.setPointerCapture && btn.setPointerCapture(e.pointerId);
+            });
+            btn.addEventListener('pointermove', (e) => {
+                if (!pressActive) return;
+                const target = getShapeTarget(btn);
+                if (target && lastPreview !== target) {
+                    lastPreview = target;
+                    btn.classList.add('hovered');
+                    shapeButtons.forEach(other => { if (other !== btn) other.classList.remove('hovered'); });
+                    transform(target, 900);
+                }
+            });
+            btn.addEventListener('pointerup', () => {
+                if (!pressActive) return;
+                pressActive = false;
+                btn.classList.remove('hovered');
+                lastPreview = null;
+            });
+            btn.addEventListener('pointercancel', () => {
+                pressActive = false;
+                btn.classList.remove('hovered');
+                lastPreview = null;
+            });
+        });
     }
 }
 
@@ -279,24 +318,18 @@ function startTypewriter() {
     typeIndex = 0;
     box.classList.remove('done');
     box.textContent = '';
+    const letterBody = document.querySelector('#letter-modal .letter-bg');
     typewriterTimer = setInterval(() => {
-        typeIndex += 1;
-        if (!typewriterFrame) {
-            typewriterFrame = requestAnimationFrame(() => {
-                box.textContent = letterText.slice(0, typeIndex);
-                const letterBody = document.querySelector('#letter-modal .letter-bg');
-                if (letterBody) letterBody.scrollTop = letterBody.scrollHeight;
-                typewriterFrame = null;
-            });
-        }
+        typeIndex += 2;
+        box.textContent = letterText.slice(0, typeIndex);
+        if (letterBody) letterBody.scrollTop = letterBody.scrollHeight;
         if (typeIndex >= letterText.length) {
             clearInterval(typewriterTimer);
             typewriterTimer = null;
-            if (typewriterFrame) cancelAnimationFrame(typewriterFrame);
             box.textContent = letterText;
             box.classList.add('done');
         }
-    }, 55);
+    }, 30);
 }
 
 let camera, sceneWebGL, sceneCSS, rendererWebGL, rendererCSS;
@@ -514,15 +547,20 @@ function enterAnimation() {
             .delay(delay)
             .start();
     }
-    // 动画结束后，把所有卡片换成高清原图。
-    const swapDelay = duration + 1200;
-    setTimeout(() => {
-        for (let i = 0; i < objects.length; i++) {
-            const imgIndex = (i % totalUploadedPhotos) + 1;
-            objects[i].element.style.backgroundImage = `url('assets/images/${imgIndex}.webp')`;
-            if (objects[i].userData.backElement) objects[i].userData.backElement.style.backgroundImage = `url('assets/images/${imgIndex}.webp')`;
-        }
-    }, swapDelay);
+    // 动画结束后分四批替换高清原图，避免一次性替换造成卡顿。
+    const swapDelay = duration + 1000;
+    const batchSize = Math.ceil(objects.length / 4);
+    for (let batch = 0; batch < 4; batch++) {
+        setTimeout(() => {
+            const start = batch * batchSize;
+            const end = Math.min(objects.length, start + batchSize);
+            for (let i = start; i < end; i++) {
+                const imgIndex = (i % totalUploadedPhotos) + 1;
+                objects[i].element.style.backgroundImage = `url('assets/images/${imgIndex}.webp')`;
+                if (objects[i].userData.backElement) objects[i].userData.backElement.style.backgroundImage = `url('assets/images/${imgIndex}.webp')`;
+            }
+        }, swapDelay + batch * 700);
+    }
 }
 
 preloadThumbs();
