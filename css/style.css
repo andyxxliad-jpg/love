@@ -119,6 +119,3 @@ html, body {
 .loading-box #photo-loading-count { color: #ffc1cd; font-size: 12px; opacity: .8; }
 
 
-/* A single composited animation is much lighter than animating 120 DOM cards in JavaScript. */
-#css-container.photo-entering { animation: photoSceneEntrance 2.8s cubic-bezier(.2,.75,.25,1) both; transform-origin: 50% 50%; }
-@keyframes photoSceneEntrance { from { opacity: 0; transform: scale(.42); } 65% { opacity: 1; transform: scale(1.04); } to { opacity: 1; transform: scale(1); } }
