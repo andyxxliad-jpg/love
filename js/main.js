@@ -114,17 +114,72 @@ audio.preload = 'auto';
     document.addEventListener(ev, startMusic, { passive: true });
 });
 
+// ===== 首次进入：长按屏幕，粉色扩散占满后进入 =====
+const holdOverlay = document.getElementById('hold-overlay');
+const holdPink = document.getElementById('hold-pink');
+let holdActive = false, holdDone = false, holdTimer = null, holdStartT = 0;
+
+function startExperienceWhenReady() {
+    if (photosReady) { startExperience(); return; }
+    const wait = setInterval(() => {
+        if (photosReady) { clearInterval(wait); startExperience(); }
+    }, 120);
+}
+
+function enterAfterHold() {
+    if (holdDone) return;
+    holdDone = true;
+    holdActive = false;
+    if (holdTimer) { clearInterval(holdTimer); holdTimer = null; }
+    holdOverlay.classList.remove('show');
+    startMusic();
+    startExperienceWhenReady();
+}
+
+function holdUpdate() {
+    const p = Math.min(1, (performance.now() - holdStartT) / 2200);
+    // 粉色面积随长按时长扩大，直至覆盖全屏
+    holdPink.style.transform = 'translate(-50%, -50%) scale(' + p + ')';
+    // 颜色由淡粉渐变为深一号的粉
+    const g = Math.round(182 - p * 42);
+    const b = Math.round(193 - p * 30);
+    holdPink.style.backgroundColor = 'rgba(255,' + g + ',' + b + ',' + (0.4 + p * 0.35) + ')';
+    if (p >= 1) enterAfterHold();
+}
+
+function holdStart() {
+    if (holdDone) return;
+    holdActive = true;
+    holdStartT = performance.now();
+    holdPink.style.backgroundColor = 'rgba(255,182,193,0.4)';
+    holdPink.style.transform = 'translate(-50%, -50%) scale(0)';
+    if (holdTimer) clearInterval(holdTimer);
+    holdTimer = setInterval(holdUpdate, 16);
+}
+
+function holdEnd() {
+    if (holdDone) return;
+    holdActive = false;
+    if (holdTimer) { clearInterval(holdTimer); holdTimer = null; }
+    holdPink.style.transform = 'translate(-50%, -50%) scale(0)';
+}
+
+holdOverlay.addEventListener('pointerdown', (e) => { e.preventDefault(); holdStart(); });
+holdOverlay.addEventListener('pointerup', holdEnd);
+holdOverlay.addEventListener('pointercancel', holdEnd);
+holdOverlay.addEventListener('pointerleave', holdEnd);
+
 btnEnter.addEventListener('click', () => {
     welcomeScreen.style.opacity = '0';
     localStorage.setItem('universeVisited_v14', 'true');
     setTimeout(() => {
         welcomeScreen.style.display = 'none';
-        startMusic();
-        if (photosReady) startExperience();
-        else {
-            const wait = setInterval(() => {
-                if (photosReady) { clearInterval(wait); startExperience(); }
-            }, 120);
+        if (isFirstTime) {
+            // 首次进入：长按屏幕，粉色扩散占满后进入
+            holdOverlay.classList.add('show');
+        } else {
+            startMusic();
+            startExperienceWhenReady();
         }
     }, 1000);
 });
@@ -840,34 +895,16 @@ async function playMessage() {
     transform(targets.message, 1800);
     animateTrunk(false); animateFerris(false);
     await wait(1900);
-    // 文字期间：镜头环绕照片圈，电影级线性展示照片
+    // 文字期间：电影级远景，相机绕照片圈环绕，准心锁定圆心（原点）
     const msgTourT0 = performance.now();
     const msgTour = setInterval(() => {
-        const raw = ((performance.now() - msgTourT0) / 24000) % 1;
-        const e = raw < 0.5 ? 4*raw*raw*raw : 1 - Math.pow(-2*raw+2, 3)/2;
-        const t = e * Math.PI * 2;
-        // 电影级远景运镜：推近 → 环绕展示 → 拉远拉升 → 高空俯瞰回落
-        const p = raw;
-        if (p < 0.15) {
-            const q = p / 0.15;
-            const r = 3600 - q * 1400;
-            const ang = q * Math.PI;
-            camera.position.set(Math.cos(ang)*r, Math.sin(ang)*r, q * 180);
-        } else if (p < 0.5) {
-            const tt = ((p - 0.15) / 0.35) * Math.PI * 2;
-            camera.position.set(Math.cos(tt)*2200, Math.sin(tt)*2200, Math.sin(tt*2)*220);
-        } else if (p < 0.75) {
-            const q = (p - 0.5) / 0.25;
-            const r = 2200 + q * 1500;
-            const ang = (1 + q) * Math.PI * 0.55;
-            camera.position.set(Math.cos(ang)*r, 320 + q * 480, Math.sin(ang)*r);
-        } else {
-            const q = (p - 0.75) / 0.25;
-            const r = 3700 - q * 120;
-            const ang = (1.55 + q * 1.1) * Math.PI;
-            camera.position.set(Math.cos(ang)*r, 800 - q * 480, Math.sin(ang)*r);
-        }
-        controls.target.set(0, 920, 0);
+        const p = ((performance.now() - msgTourT0) / 24000) % 1;
+        // 站在远处看照片围成的圈：绕圈旋转 + 斜上方俯视 + 轻微呼吸
+        const ang = p * Math.PI * 2;
+        const R = 3200 + Math.sin(p * Math.PI * 6) * 350;
+        const height = 1500 + Math.sin(p * Math.PI * 4) * 300;
+        camera.position.set(Math.cos(ang)*R, Math.sin(ang)*R, height);
+        controls.target.set(0, 0, 0);
         camera.lookAt(controls.target);
     }, 16);
     for (let i = 0; i < MESSAGE_TEXT.length; i++) {
