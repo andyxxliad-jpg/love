@@ -223,6 +223,7 @@ let messagePlaying = false;
 let letterTextEl = null;
 let letterInnerEl = null;
 let letterObj = null;
+let letterOverlay = null;
 let decorPoints = null;
 const MESSAGE_TEXT = [
   '其实我不太会表达自己，也是一个特别怕麻烦的人。可是你的出现让我觉得我也是生动的人。谢谢你给了我一个很好的温度，让我感受到了爱和温暖。想起你，我就觉得有了依靠，做事情都多了一份底气。难怪大家都说，被爱好似有靠山。',
@@ -383,7 +384,7 @@ function init() {
     }
     decorGeo.setAttribute('position', new THREE.BufferAttribute(decorPos, 3));
     decorPoints = new THREE.Points(decorGeo, new THREE.PointsMaterial({
-        size: 9, map: texture, transparent: true, opacity: .95,
+        size: 16, map: texture, transparent: true, opacity: 1,
         blending: THREE.AdditiveBlending, depthWrite: false }));
     const decorGroup = new THREE.Group();
     decorGroup.position.set(0, 0, 0);
@@ -472,12 +473,17 @@ function init() {
         targets.ferris.push( object );
     }
 
-    // 小作文：照片围绕中心一圈（黑色纸在圆心）
+    // 小作文：照片围一圈、打散，并正对 88 秒后的镜头（z = -9600）
     for ( let i = 0; i < objects.length; i ++ ) {
         const a = ( i / objects.length ) * Math.PI * 2;
+        const r = 1000 + ( Math.random() - .5 ) * 400;
         const object = new THREE.Object3D();
-        object.position.set( Math.cos( a ) * 1050, Math.sin( a ) * 1050, 0 );
-        object.lookAt( 0, 0, 0 );
+        object.position.set(
+            Math.cos( a ) * r,
+            Math.sin( a ) * r + ( Math.random() - .5 ) * 280,
+            ( Math.random() - .5 ) * 320
+        );
+        object.lookAt( 0, 0, -9600 );
         targets.message.push( object );
     }
 
@@ -773,17 +779,34 @@ function showDecor(patternArr) {
         }, 16);
     });
 }
+async function combinePatterns(list) {
+    const offsets = [
+        { x: 0, y: 430 },
+        { x: 0, y: -430 },
+        { x: 0, y: 0 }
+    ];
+    const out = [];
+    list.forEach((fn, idx) => {
+        const pts = fn();
+        const off = offsets[idx % offsets.length];
+        for (let i = 0; i < pts.length; i += 3) {
+            out.push(pts[i] + off.x, pts[i+1] + off.y, pts[i+2]);
+        }
+    });
+    return out;
+}
 async function typeMessage(text) {
-    letterInnerEl.textContent = '';
+    if (!letterOverlay) letterOverlay = document.getElementById('letter-overlay');
+    letterOverlay.textContent = '';
     for (let i = 0; i < text.length; i++) {
-        letterInnerEl.textContent = text.slice(0, i + 1);
+        letterOverlay.textContent = text.slice(0, i + 1);
         await wait(42);
     }
 }
 function fadeMessageUp() {
     return new Promise(res => {
-        letterInnerEl.style.opacity = '0';
-        letterInnerEl.style.transform = 'translateY(-50px)';
+        if (!letterOverlay) letterOverlay = document.getElementById('letter-overlay');
+        letterOverlay.style.opacity = '0';
         setTimeout(res, 500);
     });
 }
@@ -794,18 +817,18 @@ async function playMessage() {
     const prevShape = currentShapeIndex;
     controls.autoRotate = false;
     controls.enabled = false;
-    letterObj.visible = true;
-    letterTextEl.style.display = 'flex';
+    if (!letterOverlay) letterOverlay = document.getElementById('letter-overlay');
+    letterOverlay.style.display = 'block';
+    letterOverlay.style.opacity = '1';
     transform(targets.message, 1800);
     animateTrunk(false); animateFerris(false);
     await moveCameraToText();
     await wait(400);
-    const decorPatterns = [buildStarPattern, buildHeartPattern, buildSnowflakePattern, buildCatPattern, buildDogPattern];
     for (let i = 0; i < MESSAGE_TEXT.length; i++) {
-        letterInnerEl.style.opacity = '1';
-        letterInnerEl.style.transform = 'translateY(0)';
-        await showDecor(decorPatterns[i % decorPatterns.length]());  // 中心摆图案
-        await typeMessage(MESSAGE_TEXT[i]);   // DOM 打字机，一定显示
+        letterOverlay.style.opacity = '1';
+        // 同时显示 3 个图案（星星 + 爱心 + 雪花）
+        await showDecor(combinePatterns([buildStarPattern, buildHeartPattern, buildSnowflakePattern]));
+        await typeMessage(MESSAGE_TEXT[i]);
         await wait(5200);
         if (i < MESSAGE_TEXT.length - 1) {
             await fadeMessageUp();
@@ -815,8 +838,8 @@ async function playMessage() {
     const blackout = document.getElementById('blackout');
     if (blackout) blackout.classList.add('show');
     await wait(650);
-    letterObj.visible = false;
-    letterTextEl.style.display = 'none';
+    if (!letterOverlay) letterOverlay = document.getElementById('letter-overlay');
+    letterOverlay.style.display = 'none';
     // 装饰粒子散开
     const dp = decorPoints.geometry.attributes.position;
     const sc = decorScatter();
