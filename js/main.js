@@ -424,7 +424,7 @@ function init() {
     }
     nameGeo.setAttribute('position', new THREE.BufferAttribute(namePos, 3));
     namePoints = new THREE.Points(nameGeo, new THREE.PointsMaterial({
-        size: 22, map: texture, transparent: true, opacity: 1,
+        size: 48, map: texture, transparent: true, opacity: 1,
         blending: THREE.AdditiveBlending, depthWrite: false }));
     sceneWebGL.add(namePoints);
 
@@ -854,7 +854,7 @@ function buildNameParticles() {
     ctx.fillText('andy ♥ 陶陶', 450, 150);
     const data = ctx.getImageData(0, 0, 900, 300).data;
     const pts = [];
-    for (let y = 0; y < 300; y += 2) for (let x = 0; x < 900; x += 2) {
+    for (let y = 0; y < 300; y += 4) for (let x = 0; x < 900; x += 4) {
         const i = (y * 900 + x) * 4;
         if (data[i] > 150 && data[i+1] > 150 && data[i+2] > 150) {
             const px = (x / 900 - .5) * 1700;
