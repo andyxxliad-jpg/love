@@ -1188,6 +1188,16 @@ function switchShape() {
 }
 let lastTapTime = 0, lastTapX = 0, lastTapY = 0;
 let suppressPhotoClick = false;
+const testBtn = document.getElementById('test-btn');
+if (testBtn) {
+    testBtn.addEventListener('click', () => {
+        if (audio) {
+            try { audio.currentTime = 88; } catch (e) {}
+            audio.play().catch(() => {});
+        }
+        playMessage();
+    });
+}
 window.addEventListener('pointerdown', (e) => {
     if (messagePlaying || tourPlaying) return;
     if (e.target.closest && e.target.closest('.element')) return;
