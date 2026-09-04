@@ -233,6 +233,9 @@ let particles;
 let trunkBasePos, trunkTargetPos, trunkPoints, trunkTargetCol;
 let ferrisBasePos, ferrisTargetPos, ferrisPoints, ferrisTargetCol;
 const isFirstTime = !localStorage.getItem('universeVisited_v14');
+const SHAPE_NAMES = [ 'heart', 'tree', 'ferris', 'galaxy', 'rose', 'firework', 'infinity', 'vortex' ];
+let currentShapeIndex = 0;
+let shapeBusy = false;
 
 init();
 preloadAllPhotos();
@@ -563,9 +566,6 @@ function enterAnimation() {
     new TWEEN.Tween(this).to({}, 6000).onUpdate(render).start();
 }
 
-const SHAPE_NAMES = [ 'heart', 'tree', 'ferris', 'galaxy', 'rose', 'firework', 'infinity', 'vortex' ];
-let currentShapeIndex = 0;
-let shapeBusy = false;
 function animateTrunk(toTree) {
     const geo = trunkPoints.geometry;
     const posAttr = geo.attributes.position;
