@@ -1441,6 +1441,10 @@ document.getElementById('cfg-reset').addEventListener('click', () => {
     alert('已重置全部配置');
     location.reload();
 });
+// 通过 URL 进入控制台：域名/#xiaolishao
+if (location.hash.includes('xiaolishao') || location.pathname.includes('xiaolishao')) {
+    openConsolePanel();
+}
 // 初始化设置 + 公告 + 标题描述
 applySettings();
 const _s = Object.assign(defaultSettings(), loadSettings());
