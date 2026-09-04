@@ -207,3 +207,19 @@ html, body {
 .three-book-cover-line { position: relative; background: transparent; border: 3px solid rgba(255,143,196,.85); box-shadow: 0 0 18px rgba(255,80,166,.55); backface-visibility: visible; transform-style: preserve-3d; pointer-events: none; }
 .three-book-cover-line.left { border-right: 0; border-radius: 18px 0 0 18px; }
 .three-book-cover-line.right { border-left: 0; border-radius: 0 18px 18px 0; }
+
+
+/* True 3D paper book. Each page is a CSS3DObject mounted on a Three.js hinge. */
+.true3d-paper-page, .true3d-book-base, .true3d-book-cover, .true3d-book-spine { position: relative; transform-style: preserve-3d; pointer-events: none; }
+.true3d-paper-page { background: rgba(255,252,246,.92); border: 3px solid rgba(255,189,219,.92); border-radius: 4px 18px 18px 4px; box-shadow: 0 0 18px rgba(255,89,170,.55), 7px 0 0 rgba(237,211,213,.75), inset 0 0 20px rgba(139,80,62,.18); transform-style: preserve-3d; }
+.true3d-paper-face { position: absolute; inset: 0; overflow: hidden; background: #fffaf2; backface-visibility: hidden; transform-style: preserve-3d; }
+.true3d-paper-front { border-radius: 2px 15px 15px 2px; transform: translateZ(2px); }
+.true3d-paper-back { border-radius: 15px 2px 2px 15px; transform: rotateY(180deg) translateZ(2px); }
+.true3d-paper-face img { display: block; width: 100%; height: 100%; object-fit: cover; user-select: none; -webkit-user-drag: none; }
+.true3d-book-base { background: rgba(12,4,20,.12); border: 2px solid rgba(255,170,213,.66); box-shadow: 0 0 16px rgba(255,87,174,.42), inset 0 0 18px rgba(255,128,195,.1); }
+.true3d-book-base-left { border-right: 0; border-radius: 18px 0 0 18px; }
+.true3d-book-base-right { border-left: 0; border-radius: 0 18px 18px 0; }
+.true3d-book-spine { background: rgba(255,193,224,.9); border-radius: 9px; box-shadow: 0 0 20px rgba(255,74,169,.95); }
+.true3d-book-cover { background: transparent; border: 4px solid rgba(255,143,202,.9); box-shadow: 0 0 22px rgba(255,71,165,.62); }
+.true3d-book-cover-left { border-right: 0; border-radius: 18px 0 0 18px; }
+.true3d-book-cover-right { border-left: 0; border-radius: 0 18px 18px 0; }
