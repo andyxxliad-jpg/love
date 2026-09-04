@@ -46,6 +46,7 @@ html, body {
 .controls.open .shape-buttons { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
 .shape-btn { font-family: 'ZCOOL KuaiLe', sans-serif; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.32); color: #fff; padding: 9px 16px; border-radius: 22px; cursor: pointer; backdrop-filter: blur(4px); font-size: 14px; transition: transform .18s, background .18s, box-shadow .18s; }
 .shape-btn.hovered { transform: scale(1.22); background: rgba(255,140,163,0.55); border-color: #ff8ca3; box-shadow: 0 0 18px rgba(255,140,163,0.6); }
+.shape-btn { touch-action: none; user-select: none; -webkit-user-select: none; }
 .shape-btn:hover { transform: scale(1.18); background: rgba(255,140,163,0.42); }
 
 .lyrics-box { position: absolute; bottom: 15vh; left: 0; right: 0; margin: 0 auto; text-align: center; width: 90%; font-size: 18px; letter-spacing: 1px; text-shadow: 0 2px 8px rgba(0,0,0,0.9); color: #fff; transition: opacity 0.8s ease-in-out; pointer-events: none; line-height: 1.6; }
@@ -127,7 +128,8 @@ html, body {
 .letter-shortcut:active { transform: scale(.9); background: rgba(255,140,163,.35); }
 #letter-modal .modal-content { animation: none !important; transform: scale(1) !important; opacity: 1 !important; will-change: auto; }
 #letter-modal .typewriter-content { overflow-wrap: break-word; white-space: pre-wrap; }
-#letter-modal .letter-bg { max-height: 74vh; overflow-y: auto; }
+#letter-modal .letter-bg { max-height: 74vh; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+#letter-modal .typewriter-content { min-height: 60vh; will-change: scroll-position; }
 .photo-loading-screen { background: #05020a; }
 .photo-loading-screen.hidden { visibility: hidden; }
 .element { background-color: rgba(255,140,163,.08); }
