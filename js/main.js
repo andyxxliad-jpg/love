@@ -223,7 +223,7 @@ function startTypewriter() {
 let camera, sceneWebGL, sceneCSS, rendererWebGL, rendererCSS;
 let controls;
 const objects = [];
-const targets = { heart: [], sphere: [], helix: [], grid: [] };
+const targets = { heart: [], tree: [], snowflake: [], ferris: [], galaxy: [], windchime: [] };
 
 // 关键修改点：设定为 120 张
 const photoCount = 120; 
