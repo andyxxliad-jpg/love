@@ -151,3 +151,14 @@ html, body {
     .book-stage { perspective: 1100px; }
     .memory-book.book-zoom { transform: rotateX(0deg) scale(2.6) translateZ(260px); }
 }
+
+
+/* Fix physical book stacking: the front cover opens first, then pages turn right-to-left. */
+.book-cover-front { transition: transform 1s cubic-bezier(.2,.75,.2,1), z-index 0s linear 1s; }
+.memory-book.book-open .book-cover-front { transform: rotateY(-180deg); z-index: 2; }
+.book-sheet { backface-visibility: visible; }
+.book-sheet.page-turned { transform: rotateY(-180deg); }
+.book-sheet .book-front, .book-sheet .book-back { background-color: #f7ede3; }
+.page-number { position: absolute; right: 12px; bottom: 10px; color: rgba(90,45,48,.65); font: 16px 'Caveat', cursive; text-shadow: 0 1px 2px rgba(255,255,255,.6); }
+.book-final-page { z-index: 12; }
+.memory-book.book-spread .book-cover-front { opacity: 0; pointer-events: none; }
