@@ -407,17 +407,13 @@ function init() {
 
     sceneCSS = new THREE.Scene();
 
-    // 黑色纸（CSS3D，圆心位置，小作文打字背景）
-    const blackPaperEl = document.createElement('div');
-    blackPaperEl.style.width = '720px';
-    blackPaperEl.style.height = '960px';
-    blackPaperEl.style.background = '#000';
-    blackPaperEl.style.borderRadius = '10px';
-    blackPaperEl.style.boxShadow = '0 0 60px rgba(0,0,0,.8)';
-    blackPaper = new THREE.CSS3DObject(blackPaperEl);
-    blackPaper.position.set(0, 0, -20);
+    // 黑色纸（WebGL Mesh，位于文字粒子后面，避免盖住文字）
+    const paperGeo = new THREE.PlaneGeometry(720, 960);
+    const paperMat = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide });
+    blackPaper = new THREE.Mesh(paperGeo, paperMat);
+    blackPaper.position.set(0, 0, -30);
     blackPaper.visible = false;
-    sceneCSS.add(blackPaper);
+    sceneWebGL.add(blackPaper);
 
 
     for ( let i = 0; i < photoCount; i ++ ) {
@@ -769,13 +765,18 @@ function tweenCamera(props, dur) {
 async function playMessage() {
     messagePlaying = true;
     const prevAutoRotate = controls.autoRotate;
+    const prevEnabled = controls.enabled;
     const prevShape = currentShapeIndex;
     controls.autoRotate = false;            // 看字时停止自动旋转
+    controls.enabled = false;               // 锁定相机，防止拖动偏移
+    // 镜头正对文字
+    new TWEEN.Tween(camera.position).to({ x: 0, y: 0, z: 2800 }, 1500).easing(TWEEN.Easing.Cubic.InOut).start();
+    new TWEEN.Tween(controls.target).to({ x: 0, y: 0, z: 0 }, 1500).easing(TWEEN.Easing.Cubic.InOut).start();
     // 照片围绕黑纸一圈 + 黑纸显示
     blackPaper.visible = true;
     transform(targets.message, 1800);
     animateTrunk(false); animateFerris(false);
-    await wait(2000);
+    await wait(2200);
     for (let i = 0; i < MESSAGE_TEXT.length; i++) {
         await gatherMessage(MESSAGE_TEXT[i]);   // 纸上汇聚成字
         await wait(5200);                        // 停留足够读
@@ -794,6 +795,9 @@ async function playMessage() {
     transform(targets[SHAPE_NAMES[prevShape]], 1600);  // 照片回到之前形状
     if (blackout) blackout.classList.remove('show');
     controls.autoRotate = prevAutoRotate;    // 恢复自动旋转
+    controls.enabled = prevEnabled;          // 恢复相机操作
+    controls.target.set(0, 0, 0);
+    controls.update();
     messagePlaying = false;
 }
 function switchShape() {
