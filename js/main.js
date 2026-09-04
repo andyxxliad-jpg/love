@@ -760,6 +760,29 @@ function scatterMessageUp() {
     });
 }
 function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+function moveCameraToText() {
+    return new Promise(res => {
+        const sx = camera.position.x, sy = camera.position.y, sz = camera.position.z;
+        const tx = controls.target.x, ty = controls.target.y, tz = controls.target.z;
+        const state = { p: 0 };
+        new TWEEN.Tween(state).to({ p: 1 }, 1800).easing(TWEEN.Easing.Cubic.InOut)
+            .onUpdate(() => {
+                const p = state.p;
+                camera.position.set(
+                    sx + (0 - sx) * p,
+                    sy + (0 - sy) * p,
+                    sz + (2800 - sz) * p
+                );
+                controls.target.set(tx + (0 - tx) * p, ty + (0 - ty) * p, tz + (0 - tz) * p);
+                camera.lookAt(controls.target);
+            })
+            .onComplete(() => {
+                camera.lookAt(controls.target);
+                res();
+            })
+            .start();
+    });
+}
 function tweenCamera(props, dur) {
     return new Promise(res => {
         new TWEEN.Tween(camera.position).to(props, dur).easing(TWEEN.Easing.Cubic.InOut).start();
@@ -774,14 +797,13 @@ async function playMessage() {
     const prevShape = currentShapeIndex;
     controls.autoRotate = false;            // 看字时停止自动旋转
     controls.enabled = false;               // 锁定相机，防止拖动偏移
-    // 镜头正对文字
-    new TWEEN.Tween(camera.position).to({ x: 0, y: 0, z: 2800 }, 1500).easing(TWEEN.Easing.Cubic.InOut).start();
-    new TWEEN.Tween(controls.target).to({ x: 0, y: 0, z: 0 }, 1500).easing(TWEEN.Easing.Cubic.InOut).start();
     // 照片围绕黑纸一圈 + 黑纸显示
     blackPaper.visible = true;
     transform(targets.message, 1800);
     animateTrunk(false); animateFerris(false);
-    await wait(2200);
+    // 平滑移动镜头，正对文字（含朝向修正）
+    await moveCameraToText();
+    await wait(700);
     for (let i = 0; i < MESSAGE_TEXT.length; i++) {
         await gatherMessage(MESSAGE_TEXT[i]);   // 纸上汇聚成字
         await wait(5200);                        // 停留足够读
