@@ -243,12 +243,10 @@ let tapTimer = null;
 let tourPlaying = false;
 let tourTimer = null;
 let moveTimer = null;
-let decorTimer = null;
 let letterTextEl = null;
 let letterInnerEl = null;
 let letterObj = null;
 let letterOverlay = null;
-let decorPoints = null;
 let namePoints = null;
 let nameTimer = null;
 let nameVisible = false;
@@ -270,7 +268,7 @@ function init() {
     camera.position.z = 2800; 
     
     sceneWebGL = new THREE.Scene();
-    const particleCount = 3500;
+    const particleCount = 2800;
     const geometry = new THREE.BufferGeometry();
     const positions = new Float32Array(particleCount * 3);
     for(let i=0; i<particleCount*3; i++) {
@@ -399,25 +397,6 @@ function init() {
         size: 62, map: texture, vertexColors: true, transparent: true, opacity: 1,
         blending: THREE.AdditiveBlending, depthWrite: false }));
     sceneWebGL.add(ferrisPoints);
-
-    // 文字期间的装饰图案粒子（星星/爱心等，在场景中心）
-    const decorCount = 800;
-    const decorGeo = new THREE.BufferGeometry();
-    const decorPos = new Float32Array(decorCount * 3);
-    for (let i = 0; i < decorCount; i++) {
-        decorPos[i*3] = (Math.random() - .5) * 5000;
-        decorPos[i*3+1] = (Math.random() - .5) * 5000;
-        decorPos[i*3+2] = (Math.random() - .5) * 4000;
-    }
-    decorGeo.setAttribute('position', new THREE.BufferAttribute(decorPos, 3));
-    decorPoints = new THREE.Points(decorGeo, new THREE.PointsMaterial({
-        size: 16, map: texture, transparent: true, opacity: 1,
-        blending: THREE.AdditiveBlending, depthWrite: false }));
-    const decorGroup = new THREE.Group();
-    decorGroup.position.set(0, 0, 0);
-    decorGroup.scale.set(1.6, 1.6, 1.6);
-    decorGroup.add(decorPoints);
-    sceneWebGL.add(decorGroup);
 
     // 名字粒子（andy ♥ 陶陶 特写）
     const nameCount = 8000;
@@ -725,135 +704,6 @@ function moveCameraToText() {
         }, 16);
     });
 }
-function buildStarPattern() {
-    const pts = [];
-    const R = 400, r = 160;
-    for (let i = 0; i < 10; i++) {
-        const ang = -Math.PI/2 + i * Math.PI/5;
-        const rad = i % 2 === 0 ? R : r;
-        for (let s = 0; s < 8; s++) {
-            const a2 = -Math.PI/2 + (i + s/8) * Math.PI/5;
-            const r2 = i % 2 === 0 ? R + (r - R) * (s/8) : r + (R - r) * (s/8);
-            pts.push(Math.cos(a2)*r2, Math.sin(a2)*r2, 0);
-        }
-    }
-    return pts;
-}
-function buildHeartPattern() {
-    const pts = [];
-    for (let i = 0; i < 400; i++) {
-        const t = (i / 400) * Math.PI * 2;
-        const x = 16 * Math.pow(Math.sin(t), 3);
-        const y = 13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t);
-        pts.push(x * 24, y * 24, 0);
-    }
-    return pts;
-}
-function buildSnowflakePattern() {
-    const pts = [];
-    for (let arm = 0; arm < 6; arm++) {
-        const a = arm * Math.PI / 3;
-        for (let s = 0; s < 30; s++) {
-            const rr = 20 + s * 13;
-            pts.push(Math.cos(a)*rr, Math.sin(a)*rr, 0);
-            pts.push(Math.cos(a + .15)*rr*.7, Math.sin(a + .15)*rr*.7, 0);
-            pts.push(Math.cos(a - .15)*rr*.7, Math.sin(a - .15)*rr*.7, 0);
-        }
-    }
-    return pts;
-}
-function buildCatPattern() {
-    const pts = [];
-    for (let i = 0; i < 300; i++) {
-        const a = Math.random() * Math.PI * 2;
-        const rr = Math.sqrt(Math.random()) * 260;
-        pts.push(Math.cos(a)*rr, Math.sin(a)*rr - 40, 0);
-    }
-    // 两只三角耳
-    for (let i = 0; i < 60; i++) {
-        const t = i / 60;
-        pts.push(-160 + t*100, 200 + t*60, 0);
-        pts.push(160 - t*100, 200 + t*60, 0);
-    }
-    return pts;
-}
-function buildDogPattern() {
-    const pts = [];
-    for (let i = 0; i < 300; i++) {
-        const a = Math.random() * Math.PI * 2;
-        const rr = Math.sqrt(Math.random()) * 260;
-        pts.push(Math.cos(a)*rr, Math.sin(a)*rr - 40, 0);
-    }
-    // 两只垂耳
-    for (let i = 0; i < 70; i++) {
-        const t = i / 70;
-        pts.push(-180, 220 - t*260, 0);
-        pts.push(180, 220 - t*260, 0);
-    }
-    return pts;
-}
-function decorScatter() {
-    const arr = [];
-    for (let i = 0; i < 800; i++) {
-        const a = Math.random() * Math.PI * 2;
-        const b = Math.acos(2 * Math.random() - 1);
-        const r = 2200 + Math.random() * 2800;
-        arr.push(r*Math.sin(b)*Math.cos(a), r*Math.sin(b)*Math.sin(a), r*Math.cos(b));
-    }
-    return arr;
-}
-function showDecor(patternArr) {
-    const n3 = patternArr.length;
-    const posAttr = decorPoints.geometry.attributes.position;
-    // 从当前位置散开，再汇聚到新图案（两阶段切换动画）
-    const from = posAttr.array.slice();
-    const scatter = decorScatter();
-    const t0 = performance.now();
-    const dur = 900;
-    if (decorTimer) clearInterval(decorTimer);
-    decorTimer = setInterval(() => {
-        const p = Math.min(1, (performance.now() - t0) / dur);
-        for (let i = 0; i < 800; i++) {
-            const k = i*3;
-            if (k < n3) {
-                if (p < 0.4) {
-                    const e1 = (p/0.4 < 0.5) ? 4*Math.pow(p/0.4,3) : 1 - Math.pow(-2*(p/0.4)+2,3)/2;
-                    posAttr.array[k] = from[k] + (scatter[k]-from[k])*e1;
-                    posAttr.array[k+1] = from[k+1] + (scatter[k+1]-from[k+1])*e1;
-                    posAttr.array[k+2] = from[k+2] + (scatter[k+2]-from[k+2])*e1;
-                } else {
-                    const q = (p-0.4)/0.6;
-                    const e2 = q < 0.5 ? 4*q*q*q : 1 - Math.pow(-2*q+2,3)/2;
-                    posAttr.array[k] = scatter[k] + (patternArr[k]-scatter[k])*e2;
-                    posAttr.array[k+1] = scatter[k+1] + (patternArr[k+1]-scatter[k+1])*e2;
-                    posAttr.array[k+2] = scatter[k+2] + (patternArr[k+2]-scatter[k+2])*e2;
-                }
-            } else {
-                posAttr.array[k] *= .96;
-                posAttr.array[k+1] *= .96;
-                posAttr.array[k+2] *= .96;
-            }
-        }
-        posAttr.needsUpdate = true;
-        if (p >= 1) { clearInterval(decorTimer); decorTimer = null; }
-    }, 16);
-}
-async function combinePatterns(list) {
-    const offsets = [
-        { x: 0, y: 430 },
-        { x: 0, y: -430 },
-        { x: 0, y: 0 }
-    ];
-    const out = [];
-    list.forEach((fn, idx) => {
-        const pts = fn();
-        const off = offsets[idx % offsets.length];
-        for (let i = 0; i < pts.length; i += 3) {
-            out.push(pts[i] + off.x, pts[i+1] + off.y, pts[i+2]);
-        }
-    });
-    return out;
-}
 function sampleNameText(text, offsetX) {
     const canvas = document.createElement('canvas');
     canvas.width = 400; canvas.height = 200;
@@ -896,15 +746,6 @@ function nameScatter() {
 }
 function showName() {
     nameVisible = true;
-    // 散开装饰图案，避免中间出现多余的圈
-    const dp = decorPoints.geometry.attributes.position;
-    const sc = decorScatter();
-    for (let i = 0; i < 800; i++) {
-        dp.array[i*3] = sc[i*3];
-        dp.array[i*3+1] = sc[i*3+1];
-        dp.array[i*3+2] = sc[i*3+2];
-    }
-    dp.needsUpdate = true;
     const targets = buildNameParticles();
     const n3 = targets.length;
     const posAttr = namePoints.geometry.attributes.position;
@@ -1029,20 +870,6 @@ async function playMessage() {
         controls.target.set(0, 920, 0);
         camera.lookAt(controls.target);
     }, 16);
-    // 图案每秒轮播（带切换动画）
-    const patterns = [buildStarPattern, buildHeartPattern, buildSnowflakePattern, buildCatPattern, buildDogPattern];
-    let patIdx = 0;
-    const nextPattern = () => {
-        showDecor(combinePatterns([
-            patterns[patIdx % patterns.length],
-            patterns[(patIdx+1) % patterns.length],
-            patterns[(patIdx+2) % patterns.length]
-        ]));
-        patIdx++;
-    };
-    nextPattern();
-    const patTimer = setInterval(nextPattern, 1000);
-
     for (let i = 0; i < MESSAGE_TEXT.length; i++) {
         letterOverlay.textContent = '';
         letterOverlay.style.opacity = '1';   // 淡入（CSS transition）
@@ -1054,9 +881,7 @@ async function playMessage() {
             await wait(300);
         }
     }
-    clearInterval(patTimer);
     clearInterval(msgTour);
-    if (decorTimer) clearInterval(decorTimer);
     if (nameTimer) clearInterval(nameTimer);
     scatterName();
     const blackout = document.getElementById('blackout');
@@ -1064,15 +889,6 @@ async function playMessage() {
     await wait(650);
     if (!letterOverlay) letterOverlay = document.getElementById('letter-overlay');
     letterOverlay.style.display = 'none';
-    // 装饰粒子散开
-    const dp = decorPoints.geometry.attributes.position;
-    const sc = decorScatter();
-    for (let i = 0; i < 800; i++) {
-        dp.array[i*3] = sc[i*3];
-        dp.array[i*3+1] = sc[i*3+1];
-        dp.array[i*3+2] = sc[i*3+2];
-    }
-    dp.needsUpdate = true;
     await wait(400);
     const restoreName = SHAPE_NAMES[prevShape];
     transform(targets[restoreName], 1600);
