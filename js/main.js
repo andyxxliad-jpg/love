@@ -11,7 +11,7 @@ function updatePhotoLoading() {
 }
 
 function preloadAllPhotos() {
-    const CONCURRENCY = 6;
+    const CONCURRENCY = 12;
     const finished = new Array(totalUploadedPhotos + 1).fill(false);
     let done = 0;
     let cursor = 1;
@@ -429,7 +429,7 @@ function init() {
     }
     nameGeo.setAttribute('position', new THREE.BufferAttribute(namePos, 3));
     namePoints = new THREE.Points(nameGeo, new THREE.PointsMaterial({
-        size: 8, map: texture, transparent: true, opacity: 1,
+        size: 2, map: texture, transparent: true, opacity: 1,
         blending: THREE.AdditiveBlending, depthWrite: false }));
     const nameGroup = new THREE.Group();
     nameGroup.position.set(0, 920, 0);
@@ -437,7 +437,8 @@ function init() {
     nameGroup.add(namePoints);
     sceneWebGL.add(nameGroup);
 
-    rendererWebGL = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    rendererWebGL = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'high-performance' });
+    rendererWebGL.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     rendererWebGL.setSize( window.innerWidth, window.innerHeight );
     document.getElementById('webgl-container').appendChild( rendererWebGL.domElement );
 
