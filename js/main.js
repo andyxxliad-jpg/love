@@ -425,7 +425,7 @@ function init() {
     }
     nameGeo.setAttribute('position', new THREE.BufferAttribute(namePos, 3));
     namePoints = new THREE.Points(nameGeo, new THREE.PointsMaterial({
-        size: 15, map: texture, transparent: true, opacity: 1,
+        size: 11, map: texture, transparent: true, opacity: 1,
         blending: THREE.AdditiveBlending, depthWrite: false }));
     const nameGroup = new THREE.Group();
     nameGroup.position.set(0, 920, 0);
@@ -876,9 +876,9 @@ function buildNameParticles() {
     pts.push(...sampleNameText('andy', -340));
     pts.push(...sampleNameText('陶陶', 340));
     // 中间：粒子排列成空心爱心轮廓
-    for (let t = 0; t < Math.PI * 2; t += 0.04) {
-        const hx = 16 * Math.pow(Math.sin(t), 3) * 18;
-        const hy = (13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t)) * 18;
+    for (let t = 0; t < Math.PI * 2; t += 0.1) {
+        const hx = 16 * Math.pow(Math.sin(t), 3) * 24;
+        const hy = (13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t)) * 24;
         pts.push(hx, hy, (Math.random() - .5) * 8);
     }
     return pts;
