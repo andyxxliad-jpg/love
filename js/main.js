@@ -35,7 +35,13 @@ function preloadAllPhotos() {
         if (cursor > totalUploadedPhotos) return;
         const index = cursor++;
         const image = new Image();
-        image.onload = () => { finish(index); loadNext(); };
+        image.onload = () => {
+            if (image.decode) {
+                image.decode().catch(() => {}).finally(() => { finish(index); loadNext(); });
+            } else {
+                finish(index); loadNext();
+            }
+        };
         image.onerror = () => { finish(index); loadNext(); };
         image.src = `assets/images/${index}.webp`;
     };
@@ -1100,9 +1106,15 @@ function animate() {
     render();
 }
 
+let cssFrameSkip = 0;
 function render() {
     rendererWebGL.render( sceneWebGL, camera );
-    rendererCSS.render( sceneCSS, camera );
+    if (tourPlaying || messagePlaying) {
+        cssFrameSkip++;
+        if (cssFrameSkip % 2 === 0) rendererCSS.render( sceneCSS, camera );
+    } else {
+        rendererCSS.render( sceneCSS, camera );
+    }
 }
 
 if (!isFirstTime) {
