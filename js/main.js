@@ -27,46 +27,67 @@ const welcomeScreen = document.getElementById('welcome-screen');
 const mainUI = document.getElementById('main-ui');
 let audio = document.getElementById('bgm');
 
-// 先加载并解码全部高质量照片，完成后才开始进场动画。
+// 入场动画只使用轻量预览图，高清图在动画开始后分批替换。
 const imageCache = new Map();
 const photoElements = [];
-const MAX_IMAGE_LOADS = 4;
-let photosLoaded = 0;
-let photosReady = false;
-let weatherReady = false;
-let photoFullReady;
+const MAX_IMAGE_LOADS = 3;
+let thumbsReady = false;
+let fullLoadingStarted = false;
+let thumbsLoaded = 0;
 
-function updatePhotoProgress() {
-    const percent = Math.round((photosLoaded / totalUploadedPhotos) * 100);
+function setLoadingProgress() {
+    const percent = Math.round((thumbsLoaded / totalUploadedPhotos) * 100);
     const bar = document.getElementById('photo-progress-bar');
     const count = document.getElementById('photo-loading-count');
     if (bar) bar.style.width = `${percent}%`;
-    if (count) count.innerText = `照片准备中 ${photosLoaded} / ${totalUploadedPhotos}`;
+    if (count) count.innerText = `预览照片准备中 ${thumbsLoaded} / ${totalUploadedPhotos}`;
 }
 
-function showEnterButtonWhenReady() {
-    btnEnter.style.display = 'inline-block';
-    if (photosReady) {
-        btnEnter.disabled = false;
-        btnEnter.innerText = '去看我给你准备的惊喜 🚀';
-    } else {
-        btnEnter.disabled = true;
-        btnEnter.innerText = '照片准备中… ✨';
-    }
+function hideLoadingScreen() {
+    const screen = document.getElementById('loading-screen');
+    const status = document.getElementById('photo-loading-status');
+    if (status) status.innerText = '相册准备完成，可以进入啦 ✨';
+    setTimeout(() => { if (screen) screen.classList.add('hidden'); }, 350);
 }
 
-function loadPhotoImage(index) {
+function preloadPhotoThumbnails() {
+    let next = 1;
+    const worker = async () => {
+        while (next <= totalUploadedPhotos) {
+            const index = next++;
+            await new Promise(resolve => {
+                const image = new Image();
+                image.onload = () => {
+                    photoElements.forEach(item => {
+                        if (item.index === index) item.element.style.backgroundImage = `url(\"assets/images/thumbs/${index}.webp\")`;
+                    });
+                    resolve();
+                };
+                image.onerror = resolve;
+                image.src = `assets/images/thumbs/${index}.webp`;
+            });
+            thumbsLoaded++;
+            setLoadingProgress();
+        }
+    };
+    Promise.all(Array.from({length: MAX_IMAGE_LOADS}, worker)).then(() => {
+        thumbsReady = true;
+        hideLoadingScreen();
+        if (weatherReady) showEnterButtonWhenReady();
+    });
+}
+
+function loadFullPhoto(index) {
     if (imageCache.has(index)) return imageCache.get(index);
     const promise = new Promise((resolve, reject) => {
         const image = new Image();
         image.decoding = 'async';
         image.onload = () => {
             const finish = () => {
-                const url = `assets/images/${index}.webp`;
                 photoElements.forEach(item => {
-                    if (item.index === index) item.element.style.backgroundImage = `url(\"${url}\")`;
+                    if (item.index === index) item.element.style.backgroundImage = `url(\"assets/images/${index}.webp\")`;
                 });
-                resolve(image);
+                resolve();
             };
             if (image.decode) image.decode().catch(() => {}).finally(finish);
             else finish();
@@ -78,23 +99,17 @@ function loadPhotoImage(index) {
     return promise;
 }
 
-function preloadAllPhotos() {
-    let nextIndex = 1;
+function startFullPhotoLoading() {
+    if (fullLoadingStarted) return;
+    fullLoadingStarted = true;
+    let next = 1;
     const worker = async () => {
-        while (nextIndex <= totalUploadedPhotos) {
-            const index = nextIndex++;
-            try { await loadPhotoImage(index); } catch (error) { console.warn(`照片 ${index} 加载失败`, error); }
-            photosLoaded++;
-            updatePhotoProgress();
+        while (next <= totalUploadedPhotos) {
+            const index = next++;
+            try { await loadFullPhoto(index); } catch (error) { console.warn(`照片 ${index} 加载失败`, error); }
         }
     };
-    photoFullReady = Promise.all(Array.from({ length: MAX_IMAGE_LOADS }, worker)).then(() => {
-        photosReady = true;
-        const status = document.getElementById('photo-loading-status');
-        if (status) status.innerText = '回忆相册准备完成，可以进入啦 ✨';
-        if (weatherReady) showEnterButtonWhenReady();
-    });
-    return photoFullReady;
+    Promise.all(Array.from({length: MAX_IMAGE_LOADS}, worker));
 }
 
 btnLocation.addEventListener('click', () => {
@@ -138,7 +153,7 @@ btnLocation.addEventListener('click', () => {
 
 let experienceStarted = false;
 btnEnter.addEventListener('click', () => {
-    if (experienceStarted || !photosReady) return;
+    if (experienceStarted || !thumbsReady) return;
     experienceStarted = true;
     welcomeScreen.style.opacity = '0';
     localStorage.setItem('universeVisited_v14', 'true');
@@ -148,6 +163,7 @@ btnEnter.addEventListener('click', () => {
         mainUI.style.pointerEvents = 'none';
         audio.play().catch(e => console.log('Audio autoplay blocked:', e));
         enterAnimation();
+        startFullPhotoLoading();
         controlsUI.classList.remove('hidden');
         uiFadeTimeout = setTimeout(() => { controlsUI.classList.add('hidden'); }, 3000);
         startQuotesCycle();
@@ -270,7 +286,7 @@ const totalUploadedPhotos = 120;
 let particles;
 
 init();
-preloadAllPhotos();
+preloadPhotoThumbnails();
 animate();
 
 function init() {
@@ -326,7 +342,7 @@ function init() {
         // 背景图不在初始化阶段加载，交给渐进式队列处理。
         element.dataset.imageIndex = imgIndex;
         element.style.backgroundColor = 'rgba(255, 140, 163, 0.08)';
-        element.style.backgroundImage = `url('assets/images/${imgIndex}.webp')`;
+        element.style.backgroundImage = `url('assets/images/thumbs/${imgIndex}.webp')`;
         photoElements.push({ element, index: imgIndex });
         
         let pointerDownPos = { x: 0, y: 0 };
@@ -422,6 +438,8 @@ function init() {
 
 function enterAnimation() {
     TWEEN.removeAll();
+    const previousAutoRotate = controls.autoRotate;
+    controls.autoRotate = false;
     const flyDuration = 1000;
     
     for (let i = 0; i < objects.length; i++) {
@@ -463,7 +481,7 @@ function enterAnimation() {
         tweenPos2.start();
         tweenRot2.start();
     }
-    // animate() 已经统一负责 render，避免动画期间重复渲染。
+    setTimeout(() => { controls.autoRotate = previousAutoRotate; }, 6500);
 }
 
 function transform( targets, duration ) {
@@ -520,14 +538,16 @@ if (!isFirstTime) {
         document.getElementById('main-ui').style.opacity = '1';
         document.getElementById('main-ui').style.pointerEvents = 'none';
         
-        photoFullReady.then(() => {
-            // 确保全部高质量照片已经绑定并完成至少一帧绘制，再启动动画。
+        const waitForThumbs = () => {
+            if (!thumbsReady) return setTimeout(waitForThumbs, 50);
             requestAnimationFrame(() => {
                 document.getElementById('main-ui').style.opacity = '1';
                 enterAnimation();
+                startFullPhotoLoading();
                 startQuotesCycle();
             });
-        });
+        };
+        waitForThumbs();
 
         const audioTip = document.createElement('div');
         audioTip.innerText = "点击屏幕播放我们的回忆原声 ✨";
