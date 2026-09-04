@@ -236,7 +236,6 @@ let ferrisBasePos, ferrisTargetPos, ferrisPoints, ferrisTargetCol;
 const isFirstTime = !localStorage.getItem('universeVisited_v14');
 const SHAPE_NAMES = [ 'heart', 'tree', 'ferris', 'galaxy', 'rose', 'firework', 'infinity', 'vortex' ];
 let messagePlaying = false;
-let blackPaper = null;
 let letterTextEl = null;
 let letterInnerEl = null;
 let letterObj = null;
@@ -394,17 +393,7 @@ function init() {
 
     sceneCSS = new THREE.Scene();
 
-    // 黑色纸 + 文字（CSS3D，同层，文字在纸前面）
-    const bpEl = document.createElement('div');
-    bpEl.style.width = '720px';
-    bpEl.style.height = '960px';
-    bpEl.style.background = '#000';
-    bpEl.style.borderRadius = '10px';
-    blackPaper = new THREE.CSS3DObject(bpEl);
-    blackPaper.position.set(0, 0, 7980);
-    blackPaper.visible = false;
-    sceneCSS.add(blackPaper);
-
+    // 文字（CSS3D，直接显示在空白区）
     letterTextEl = document.createElement('div');
     letterTextEl.style.cssText = 'width:680px;height:920px;display:flex;align-items:flex-start;justify-content:center;';
     letterInnerEl = document.createElement('div');
@@ -698,7 +687,6 @@ async function playMessage() {
     const prevShape = currentShapeIndex;
     controls.autoRotate = false;
     controls.enabled = false;
-    blackPaper.visible = true;
     letterObj.visible = true;
     letterTextEl.style.display = 'flex';
     transform(targets.message, 1800);
@@ -718,7 +706,6 @@ async function playMessage() {
     const blackout = document.getElementById('blackout');
     if (blackout) blackout.classList.add('show');
     await wait(650);
-    blackPaper.visible = false;
     letterObj.visible = false;
     letterTextEl.style.display = 'none';
     await wait(400);
