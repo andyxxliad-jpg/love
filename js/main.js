@@ -977,15 +977,15 @@ function cameraTour() {
             camera.position.set(Math.cos(ang)*1650, y, Math.sin(ang)*1650);
             controls.target.set(0, y * 0.6, 0);
         } else if (name === 'heart') {
-            // 爱心：镜头贴着照片环绕一圈
+            // 爱心：镜头沿轮廓临摹，准心始终正对当前照片
             const x = 16 * Math.pow(Math.sin(t), 3) * 58;
             const y = (13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t)) * 58;
-            camera.position.set(x, y + 150, 650);
-            controls.target.set(0, 150, 0);
+            camera.position.set(x, y + 150, 620);
+            controls.target.set(x, y + 150, 0);
         } else {
-            // 其他形状：电影级环绕 + 俯仰呼吸
+            // 其他形状：电影级环绕 + 俯仰呼吸，准心跟随形状
             camera.position.set(Math.cos(t)*2050, 180 + Math.sin(t*2.5)*340, Math.sin(t)*2050);
-            controls.target.set(0, 0, 0);
+            controls.target.set(Math.cos(t)*700, Math.sin(t)*700, 0);
         }
         camera.lookAt(controls.target);
         if (p >= 1) {
