@@ -865,11 +865,11 @@ async function playMessage() {
         const raw = ((performance.now() - msgTourT0) / 14000) % 1;
         const e = raw < 0.5 ? 4*raw*raw*raw : 1 - Math.pow(-2*raw+2, 3)/2;
         const t = e * Math.PI * 2;
-        // 镜头贴着照片圈绕行，逐个注视照片
-        const lookX = Math.cos(t)*1200;
-        const lookY = Math.sin(t)*1200;
+        // 镜头贴着照片圈绕行，准心逐个指向实际照片
+        const pi = Math.floor(e * 120) % 120;
+        const photo = objects[pi].position;
         camera.position.set(Math.cos(t)*2050, 180 + Math.sin(t*2)*160, Math.sin(t)*2050);
-        controls.target.set(lookX, lookY, 0);
+        controls.target.set(photo.x, photo.y, photo.z);
         camera.lookAt(controls.target);
     }, 16);
     // 图案每秒轮播（带切换动画）
@@ -983,11 +983,13 @@ function cameraTour() {
             camera.position.set(Math.cos(ang)*1650, y, Math.sin(ang)*1650);
             controls.target.set(0, y * 0.6, 0);
         } else if (name === 'heart') {
-            // 爱心：镜头沿轮廓临摹，准心始终正对当前照片
+            // 爱心：镜头沿轮廓临摹，准心逐个指向爱心上的照片
             const x = 16 * Math.pow(Math.sin(t), 3) * 58;
             const y = (13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t)) * 58;
             camera.position.set(x, y + 150, 620);
-            controls.target.set(x, y + 150, 0);
+            const hi = Math.floor((t / (Math.PI * 2)) * 120) % 120;
+            const hp = targets.heart[hi].position;
+            controls.target.set(hp.x, hp.y, hp.z);
         } else {
             // 其他形状：电影级环绕 + 俯仰呼吸，准心跟随形状
             camera.position.set(Math.cos(t)*2050, 180 + Math.sin(t*2.5)*340, Math.sin(t)*2050);
