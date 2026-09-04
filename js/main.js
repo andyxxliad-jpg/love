@@ -90,6 +90,16 @@ const weatherText = document.getElementById('weather-text');
 const welcomeScreen = document.getElementById('welcome-screen');
 const mainUI = document.getElementById('main-ui');
 let audio = document.getElementById('bgm');
+// 进入网站立即开始播放音乐；受浏览器自动播放策略限制，先以静音模式启动，
+// 用户第一次触摸屏幕时解除静音，声音无缝接上。
+function tryStartMusic() {
+    if (!audio) return;
+    audio.play().catch(() => {});
+}
+audio.muted = true;
+tryStartMusic();
+document.addEventListener('pointerdown', () => { audio.muted = false; tryStartMusic(); }, { once: true, passive: true });
+document.addEventListener('touchstart', () => { audio.muted = false; tryStartMusic(); }, { once: true, passive: true });
 
 btnLocation.addEventListener('click', () => {
     weatherText.innerHTML = "正在感应你的位置... 🛰️";
@@ -132,6 +142,7 @@ btnEnter.addEventListener('click', () => {
     localStorage.setItem('universeVisited_v14', 'true');
     setTimeout(() => {
         welcomeScreen.style.display = 'none';
+        audio.muted = false;
         audio.play().catch(e => console.log('Audio autoplay blocked:', e));
         if (photosReady) startExperience();
         else {
