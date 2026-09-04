@@ -27,10 +27,12 @@ const welcomeScreen = document.getElementById('welcome-screen');
 const mainUI = document.getElementById('main-ui');
 let audio = document.getElementById('bgm');
 
-// 图片采用渐进式加载，避免首屏同时解码 120 张大图造成动画卡顿。
+// 图片采用渐进式加载，避免首屏同时解码 120 张照片造成动画卡顿。
 const imageCache = new Map();
 const imageQueue = [];
-let imageQueueRunning = false;
+const photoElements = [];
+let activeImageLoads = 0;
+const MAX_IMAGE_LOADS = 4;
 
 function loadPhotoImage(index) {
     if (imageCache.has(index)) return imageCache.get(index);
@@ -38,49 +40,35 @@ function loadPhotoImage(index) {
         const image = new Image();
         image.decoding = 'async';
         image.onload = () => {
-            const url = `assets/images/${index}.png`;
-            objects.forEach((object, objectIndex) => {
-                if (((objectIndex % totalUploadedPhotos) + 1) === index) {
-                    object.element.style.backgroundImage = `url('${url}')`;
-                }
+            const url = `assets/images/${index}.webp`;
+            photoElements.forEach(item => {
+                if (item.index === index) item.element.style.backgroundImage = `url(\"${url}\")`;
             });
             resolve(image);
         };
         image.onerror = reject;
-        image.src = `assets/images/${index}.png`;
+        image.src = `assets/images/${index}.webp`;
     });
     imageCache.set(index, promise);
     return promise;
 }
 
-function queuePhotoRange(start, end) {
-    for (let index = start; index <= end; index++) imageQueue.push(index);
-    runPhotoQueue();
-}
-
 function runPhotoQueue() {
-    if (imageQueueRunning || imageQueue.length === 0) return;
-    imageQueueRunning = true;
-    const index = imageQueue.shift();
-    loadPhotoImage(index).catch(() => {}).finally(() => {
-        imageQueueRunning = false;
-        const schedule = window.requestIdleCallback || ((callback) => setTimeout(callback, 120));
-        schedule(() => runPhotoQueue());
-    });
+    while (activeImageLoads < MAX_IMAGE_LOADS && imageQueue.length) {
+        const index = imageQueue.shift();
+        activeImageLoads++;
+        loadPhotoImage(index).catch(() => {}).finally(() => {
+            activeImageLoads--;
+            runPhotoQueue();
+        });
+    }
 }
 
 function startProgressivePhotoLoading() {
-    const firstBatch = Math.min(8, totalUploadedPhotos);
-    queuePhotoRange(1, firstBatch);
-    let next = firstBatch + 1;
-    const batchTimer = setInterval(() => {
-        if (next > totalUploadedPhotos) {
-            clearInterval(batchTimer);
-            return;
-        }
-        queuePhotoRange(next, Math.min(next + 7, totalUploadedPhotos));
-        next += 8;
-    }, 900);
+    for (let index = 1; index <= totalUploadedPhotos; index++) imageQueue.push(index);
+    // 先让入场动画独占首屏资源，再以有限并发补齐全部照片。
+    const start = window.requestAnimationFrame || ((callback) => setTimeout(callback, 16));
+    start(() => setTimeout(runPhotoQueue, 350));
 }
 
 btnLocation.addEventListener('click', () => {
@@ -129,6 +117,7 @@ btnEnter.addEventListener('click', () => {
         
         audio.play().catch(e => console.log('Audio autoplay blocked:', e));
         enterAnimation();
+        startProgressivePhotoLoading();
         startProgressivePhotoLoading();
 
         controlsUI.classList.remove('hidden');
@@ -308,6 +297,7 @@ function init() {
         // 背景图不在初始化阶段加载，交给渐进式队列处理。
         element.dataset.imageIndex = imgIndex;
         element.style.backgroundColor = 'rgba(255, 140, 163, 0.08)';
+        photoElements.push({ element, index: imgIndex });
         
         let pointerDownPos = { x: 0, y: 0 };
         element.addEventListener('pointerdown', (e) => {
@@ -318,7 +308,7 @@ function init() {
             const dy = Math.abs(e.clientY - pointerDownPos.y);
             if (dx < 5 && dy < 5) {
                 const enlargedPhoto = document.getElementById('enlarged-photo');
-                enlargedPhoto.src = `assets/images/${imgIndex}.png`;
+                enlargedPhoto.src = `assets/images/${imgIndex}.webp`;
                 showModal('photo-modal');
             }
         });
