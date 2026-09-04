@@ -29,6 +29,7 @@ function preloadAllPhotos() {
             const screen = document.getElementById('photo-loading-screen');
             if (screen) screen.classList.add('hidden');
             onPhotosReady();
+            setTimeout(playMessage, 88000);
         }
     };
     const loadNext = () => {
@@ -234,6 +235,14 @@ let trunkBasePos, trunkTargetPos, trunkPoints, trunkTargetCol;
 let ferrisBasePos, ferrisTargetPos, ferrisPoints, ferrisTargetCol;
 const isFirstTime = !localStorage.getItem('universeVisited_v14');
 const SHAPE_NAMES = [ 'heart', 'tree', 'ferris', 'galaxy', 'rose', 'firework', 'infinity', 'vortex' ];
+let messagePoints = null;
+let messagePlaying = false;
+const MESSAGE_TEXT = [
+  '其实我不太会表达自己，也是一个特别怕麻烦的人。可是你的出现让我觉得我也是生动的人。谢谢你给了我一个很好的温度，让我感受到了爱和温暖。想起你，我就觉得有了依靠，做事情都多了一份底气。难怪大家都说，被爱好似有靠山。',
+  '其实，我真的远比你想象中更需要你，更在意你。谢谢你总能照顾到我的情绪，在意我说过的话。相处这么久也让我很开心，因为有你在。谢谢你靠近我、温暖我、了解我、陪伴我。',
+  '可是你要信我好不好？没有遇到你之前，我的人际交往就是固定的，我也习惯了那种半温半度。所以当你出现在我身边时，我特别不自然。我很怕你介意我的过去，很怕我会影响你。不过我希望我们能好好聊聊。我知道你特别介意我的过去，介意我和别人还有染指，但不要这么想，我的世界现在只有你了(⋟﹏⋞)。',
+  '我们把问题好好说，是问题解决我们，好嘛？敏感没有关系的，我也这样。你不要自己不说，行不行？这个样子我们情感是有扣分的，我不希望这个样子。我希望我们好好的，一直天天开心，不是吗？'
+];
 let currentShapeIndex = 0;
 let shapeBusy = false;
 
@@ -375,6 +384,21 @@ function init() {
         size: 62, map: texture, vertexColors: true, transparent: true, opacity: 1,
         blending: THREE.AdditiveBlending, depthWrite: false }));
     sceneWebGL.add(ferrisPoints);
+
+    // 小作文粒子（放在远处空旷平面 z=8000）
+    const msgCount = 8000;
+    const msgGeo = new THREE.BufferGeometry();
+    const msgPos = new Float32Array(msgCount * 3);
+    for (let i = 0; i < msgCount; i++) {
+        msgPos[i*3] = (Math.random() - .5) * 6000;
+        msgPos[i*3+1] = (Math.random() - .5) * 5000;
+        msgPos[i*3+2] = 7000 + (Math.random() - .5) * 4000;
+    }
+    msgGeo.setAttribute('position', new THREE.BufferAttribute(msgPos, 3));
+    messagePoints = new THREE.Points(msgGeo, new THREE.PointsMaterial({
+        size: 4.5, map: texture, transparent: true, opacity: 1,
+        blending: THREE.AdditiveBlending, depthWrite: false }));
+    sceneWebGL.add(messagePoints);
 
     rendererWebGL = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     rendererWebGL.setSize( window.innerWidth, window.innerHeight );
@@ -617,6 +641,126 @@ function animateFerris(toFerris) {
         })
         .start();
 }
+function wrapMsgText(text, maxChars) {
+    const lines = [];
+    let line = '';
+    for (const ch of text) {
+        line += ch;
+        if (line.length >= maxChars) { lines.push(line); line = ''; }
+    }
+    if (line) lines.push(line);
+    return lines;
+}
+function buildMessageParticles(text) {
+    const CW = 900, CH = 1300;
+    const canvas = document.createElement('canvas');
+    canvas.width = CW; canvas.height = CH;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0,0,CW,CH);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 44px "PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const lines = wrapMsgText(text, 11);
+    const lineH = 60;
+    const startY = CH/2 - (lines.length-1)*lineH/2;
+    lines.forEach((line, i) => ctx.fillText(line, CW/2, startY + i*lineH));
+    const data = ctx.getImageData(0,0,CW,CH).data;
+    const pts = [];
+    for (let y = 0; y < CH; y += 2) for (let x = 0; x < CW; x += 2) {
+        const i = (y*CW+x)*4;
+        if (data[i] > 150 && data[i+1] > 150 && data[i+2] > 150) {
+            const px = (x/CW - .5) * 820;
+            const py = (.5 - y/CH) * 1180;
+            pts.push(px, py, 8000 + (Math.random()-.5)*2);
+        }
+    }
+    return pts;
+}
+function messageScatter() {
+    const arr = [];
+    for (let i = 0; i < 8000; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const r = 1500 + Math.random() * 3000;
+        arr.push(Math.cos(a)*r, Math.sin(a)*r, 8000 + (Math.random()-.5)*5000);
+    }
+    return arr;
+}
+function gatherMessage(text) {
+    return new Promise(res => {
+        let targets;
+        try { targets = buildMessageParticles(text); } catch (e) { targets = []; }
+        const scatter = messageScatter();
+        const n3 = targets.length;
+        const posAttr = messagePoints.geometry.attributes.position;
+        const state = { p: 0 };
+        new TWEEN.Tween(state).to({ p: 1 }, 1700).easing(TWEEN.Easing.Cubic.InOut)
+            .onUpdate(() => {
+                const p = state.p;
+                for (let i = 0; i < 8000; i++) {
+                    const k = i*3;
+                    if (k < n3) {
+                        posAttr.array[k] = scatter[k]*(1-p) + targets[k]*p;
+                        posAttr.array[k+1] = scatter[k+1]*(1-p) + targets[k+1]*p;
+                        posAttr.array[k+2] = scatter[k+2]*(1-p) + targets[k+2]*p;
+                    } else {
+                        posAttr.array[k] *= .97;
+                        posAttr.array[k+1] *= .97;
+                        posAttr.array[k+2] *= .97;
+                    }
+                }
+                posAttr.needsUpdate = true;
+            })
+            .onComplete(res).start();
+    });
+}
+function scatterMessage() {
+    return new Promise(res => {
+        const scatter = messageScatter();
+        const posAttr = messagePoints.geometry.attributes.position;
+        const from = posAttr.array.slice();
+        const state = { p: 0 };
+        new TWEEN.Tween(state).to({ p: 1 }, 800).easing(TWEEN.Easing.Cubic.InOut)
+            .onUpdate(() => {
+                const p = state.p;
+                for (let i = 0; i < 8000; i++) {
+                    const k = i*3;
+                    posAttr.array[k] = from[k]*(1-p) + scatter[k]*p;
+                    posAttr.array[k+1] = from[k+1]*(1-p) + scatter[k+1]*p;
+                    posAttr.array[k+2] = from[k+2]*(1-p) + scatter[k+2]*p;
+                }
+                posAttr.needsUpdate = true;
+            })
+            .onComplete(res).start();
+    });
+}
+function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+function tweenCamera(props, dur) {
+    return new Promise(res => {
+        new TWEEN.Tween(camera.position).to(props, dur).easing(TWEEN.Easing.Cubic.InOut).start();
+        new TWEEN.Tween(controls.target).to({ x: 0, y: 0, z: props.z - 1600 }, dur)
+            .easing(TWEEN.Easing.Cubic.InOut).onComplete(res).start();
+    });
+}
+async function playMessage() {
+    messagePlaying = true;
+    // 镜头移到空旷处
+    await tweenCamera({ x: 0, y: 0, z: 9600 }, 2200);
+    for (const seg of MESSAGE_TEXT) {
+        await gatherMessage(seg);
+        await wait(3600);
+        await scatterMessage();
+        await wait(300);
+    }
+    // 黑屏恢复
+    const blackout = document.getElementById('blackout');
+    if (blackout) blackout.classList.add('show');
+    await wait(650);
+    await tweenCamera({ x: 0, y: 0, z: 2800 }, 1500);
+    if (blackout) blackout.classList.remove('show');
+    messagePlaying = false;
+}
 function switchShape() {
     if (shapeBusy) return;
     shapeBusy = true;
@@ -631,6 +775,7 @@ function switchShape() {
 let lastTapTime = 0, lastTapX = 0, lastTapY = 0;
 let suppressPhotoClick = false;
 window.addEventListener('pointerdown', (e) => {
+    if (messagePlaying) return;
     const now = performance.now();
     const dx = Math.abs(e.clientX - lastTapX);
     const dy = Math.abs(e.clientY - lastTapY);
