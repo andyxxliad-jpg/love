@@ -882,7 +882,7 @@ function buildNameParticles() {
     pts.push(...sampleNameText('陶陶', 340));
     // 中间：粒子排列成空心爱心轮廓
     // 标准实心 3D 爱心（直接生成完整爱心形状）
-    for (let i = 0; i < 1200; i++) {
+    for (let i = 0; i < 3000; i++) {
         const t = Math.random() * Math.PI * 2;
         const rr = Math.sqrt(Math.random());
         const hx = 16 * Math.pow(Math.sin(t), 3) * 18 * rr;
