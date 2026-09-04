@@ -458,70 +458,84 @@ function enterAnimation() {
     TWEEN.removeAll();
     const previousAutoRotate = controls.autoRotate;
     controls.autoRotate = false;
-    const entranceCount = Math.min(50, objects.length);
-    const totalDuration = 6000;
-    const isMobile = window.innerWidth <= 768;
+    const pageCount = 6;
+    const pageImages = Array.from({ length: pageCount }, (_, i) => `assets/images/${i + 1}.webp`);
+    const stage = document.createElement('div');
+    stage.className = 'book-stage';
+    stage.innerHTML = `
+        <div class="memory-book" aria-label="我们的回忆相册">
+            <div class="book-cover book-cover-back"></div>
+            <div class="book-page-base book-left-base"></div>
+            <div class="book-page-base book-right-base"></div>
+            <div class="book-spine"></div>
+            <div class="book-final-page book-final-left"></div>
+            <div class="book-final-page book-final-right"></div>
+            ${pageImages.map((url, i) => `
+                <div class="book-sheet" data-page="${i + 1}">
+                    <div class="book-face book-front" style="background-image:url(\"${url}\")"></div>
+                    <div class="book-face book-back" style="background-image:url(\"${url}\")"></div>
+                </div>`).join('')}
+            <div class="book-cover book-cover-front"></div>
+        </div>`;
+    document.body.appendChild(stage);
+    const book = stage.querySelector('.memory-book');
+    const sheets = Array.from(stage.querySelectorAll('.book-sheet'));
+    const finalLeft = stage.querySelector('.book-final-left');
+    const finalRight = stage.querySelector('.book-final-right');
+    finalLeft.style.backgroundImage = `url(\"${pageImages[4]}\")`;
+    finalRight.style.backgroundImage = `url(\"${pageImages[5]}\")`;
 
-    // 以屏幕高度计算卡片尺寸：中央照片约占屏幕高度 2/3，但不会铺满屏幕。
-    const worldHeight = camera.position.z * 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-    const worldPerPixel = worldHeight / window.innerHeight;
-    const cardHeight = window.innerHeight * 0.64 * worldPerPixel;
-    const cardWidth = cardHeight * 0.72;
-    const spacing = cardWidth * (isMobile ? 0.66 : 0.72);
-    const initialCenterIndex = 1;
-    const travelDistance = (entranceCount - 1 - initialCenterIndex) * spacing;
-    const state = { progress: 0 };
+    // 六张高清照片先完成下载和解码，翻页时不会出现糊图或空白页。
+    const preloadPage = (url) => new Promise(resolve => {
+        const image = new Image();
+        image.decoding = 'async';
+        image.onload = () => image.decode ? image.decode().catch(() => {}).finally(resolve) : resolve();
+        image.onerror = resolve;
+        image.src = url;
+    });
+    Promise.all(pageImages.map(preloadPage)).then(() => {
+        stage.classList.add('book-ready');
+        setTimeout(() => book.classList.add('book-open'), 120);
+        // 每一页连续翻过，六页翻完约 4 秒。
+        sheets.forEach((sheet, index) => {
+            sheet.style.zIndex = String(pageCount - index);
+            setTimeout(() => sheet.classList.add('page-turned'), 680 + index * 560);
+        });
+        setTimeout(() => book.classList.add('book-spread'), 4300);
+        // 镜头推进书的中缝，随后让照片从四面八方进入爱心。
+        setTimeout(() => book.classList.add('book-zoom'), 4850);
+        setTimeout(() => {
+            stage.classList.add('book-exit');
+            launchHeartFromBook(previousAutoRotate, stage);
+        }, 5750);
+    });
+}
 
-    // 50 张照片是一整条连续胶片带，第二张初始位于屏幕正中央。
-    for (let i = 0; i < objects.length; i++) {
-        const object = objects[i];
-        object.visible = i < entranceCount;
-        object.element.style.width = `${cardWidth}px`;
-        object.element.style.height = `${cardHeight}px`;
-        object.element.style.willChange = 'transform';
-        object.rotation.set(0, 0, 0);
-        object.element.dataset.currentImageIndex = i + 1;
-        if (i < entranceCount) object.element.style.backgroundImage = `url(\"assets/images/thumbs/${i + 1}.webp\")`;
-    }
-
-    const updateStrip = () => {
-        const offset = initialCenterIndex * spacing + state.progress * travelDistance;
-        for (let i = 0; i < entranceCount; i++) {
+function launchHeartFromBook(previousAutoRotate, bookStage) {
+    setTimeout(() => {
+        if (bookStage && bookStage.parentElement) bookStage.remove();
+        for (let i = 0; i < objects.length; i++) {
             const object = objects[i];
-            const x = i * spacing - offset;
-            const distance = Math.abs(x);
-            const focus = Math.max(0, 1 - distance / (spacing * 1.55));
-            // 中央最大，两侧自然缩小；缩放随位置连续变化，没有跳变。
-            const scale = 0.60 + focus * 0.40;
-            object.position.set(x, 0, focus * 520);
-            object.scale.set(scale, scale, scale);
+            const side = i % 4;
+            const distance = 2500 + Math.random() * 1800;
+            object.visible = true;
+            object.element.style.width = '90px';
+            object.element.style.height = '120px';
+            object.element.style.willChange = 'transform';
+            if (side === 0) object.position.set(-distance, (Math.random() - .5) * 2600, (Math.random() - .5) * 1600);
+            if (side === 1) object.position.set(distance, (Math.random() - .5) * 2600, (Math.random() - .5) * 1600);
+            if (side === 2) object.position.set((Math.random() - .5) * 3600, distance * .55, (Math.random() - .5) * 1600);
+            if (side === 3) object.position.set((Math.random() - .5) * 3600, -distance * .55, (Math.random() - .5) * 1600);
+            object.rotation.set(Math.random() * Math.PI * 2, Math.random() * Math.PI * 2, Math.random() * Math.PI * 2);
+            object.scale.set(.72, .72, .72);
         }
-    };
-
-    updateStrip();
-    new TWEEN.Tween(state)
-        .to({ progress: 1 }, totalDuration)
-        .easing(TWEEN.Easing.Linear.None)
-        .onUpdate(updateStrip)
-        .onComplete(() => {
-            // 50 张照片完整滑过后，再让全部 120 张照片打散并组合成爱心。
-            for (let i = 0; i < objects.length; i++) {
-                const object = objects[i];
-                object.visible = true;
-                object.element.style.width = '90px';
-                object.element.style.height = '120px';
-                object.element.style.willChange = 'auto';
-                object.position.set(-3600 - Math.random() * 1400, (Math.random() - 0.5) * 2200, (Math.random() - 0.5) * 1800);
-                object.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-                object.scale.set(0.72, 0.72, 0.72);
-            }
-            transform(targets.heart, 2200);
-            setTimeout(() => {
-                controls.autoRotate = previousAutoRotate;
-                startFullPhotoLoading();
-            }, 2500);
-        })
-        .start();
+        transform(targets.heart, 2200);
+        setTimeout(() => {
+            objects.forEach(object => object.element.style.willChange = 'auto');
+            controls.autoRotate = previousAutoRotate;
+            startFullPhotoLoading();
+        }, 2600);
+    }, 250);
 }
 
 function transform( targets, duration ) {
