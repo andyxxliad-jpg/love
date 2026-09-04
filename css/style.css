@@ -193,3 +193,17 @@ html, body {
 .wire-book.wire-spread .wire-spread-left, .wire-book.wire-spread .wire-spread-right { opacity: .92; }
 .wire-book.wire-spread .wire-page { opacity: 0; transition: opacity .35s ease; }
 @media (max-width: 768px) { .wire-book { width: 92vw; height: min(64vh, 590px); } .wire-book-stage { perspective: 1100px; } .wire-book.wire-zoom { transform: rotateX(0deg) scale(2.65) translateZ(280px); } }
+
+
+/* Real CSS3D book: the book lives in sceneCSS, so OrbitControls can rotate it in perspective. */
+.three-book-page-holder, .three-book-cover-holder { position: relative; transform-style: preserve-3d; pointer-events: none; }
+.three-book-page-surface { position: absolute; inset: 0; overflow: hidden; background-color: rgba(255,255,255,.03); background-size: cover; background-position: center; background-repeat: no-repeat; border: 2px solid rgba(255,183,215,.82); box-shadow: 0 0 16px rgba(255,91,170,.5), inset 0 0 22px rgba(255,136,198,.16); backface-visibility: visible; transform-style: preserve-3d; }
+.three-book-page-surface.page-front { border-radius: 5px 18px 18px 5px; }
+.three-book-page-surface.page-back { border-radius: 18px 5px 5px 18px; }
+.three-book-outline-page { position: relative; border: 2px solid rgba(255,166,207,.72); background: transparent; box-shadow: 0 0 14px rgba(255,89,170,.42), inset 0 0 20px rgba(255,136,198,.08); pointer-events: none; }
+.three-book-outline-page.left { border-right: 0; border-radius: 18px 0 0 18px; }
+.three-book-outline-page.right { border-left: 0; border-radius: 0 18px 18px 0; }
+.three-book-spine-line { width: 7px; background: rgba(255,191,222,.9); border-radius: 8px; box-shadow: 0 0 18px rgba(255,90,174,.92); pointer-events: none; }
+.three-book-cover-line { position: relative; background: transparent; border: 3px solid rgba(255,143,196,.85); box-shadow: 0 0 18px rgba(255,80,166,.55); backface-visibility: visible; transform-style: preserve-3d; pointer-events: none; }
+.three-book-cover-line.left { border-right: 0; border-radius: 18px 0 0 18px; }
+.three-book-cover-line.right { border-left: 0; border-radius: 0 18px 18px 0; }
