@@ -1383,9 +1383,6 @@ function showCalendar() {
     }
     showModal('calendar-modal');
 }
-document.getElementById('console-btn').addEventListener('click', () => {
-    document.getElementById('console-lock').classList.add('show');
-});
 document.getElementById('console-cancel').addEventListener('click', () => {
     document.getElementById('console-lock').classList.remove('show');
 });
@@ -1443,7 +1440,7 @@ document.getElementById('cfg-reset').addEventListener('click', () => {
 });
 // 通过 URL 进入控制台：域名/#xiaolishao
 if (location.hash.includes('xiaolishao') || location.pathname.includes('xiaolishao')) {
-    openConsolePanel();
+    document.getElementById('console-lock').classList.add('show');
 }
 // 初始化设置 + 公告 + 标题描述
 applySettings();
