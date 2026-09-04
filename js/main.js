@@ -457,65 +457,145 @@ function init() {
 function enterAnimation() {
     TWEEN.removeAll();
     const previousAutoRotate = controls.autoRotate;
+    const previousEnabled = controls.enabled;
+    const previousCameraPosition = camera.position.clone();
+    const previousTarget = controls.target.clone();
     controls.autoRotate = false;
+    controls.enabled = true;
+
     const pageCount = 6;
     const pageImages = Array.from({ length: pageCount }, (_, i) => `assets/images/${i + 1}.webp`);
-    const stage = document.createElement('div');
-    stage.className = 'wire-book-stage';
-    stage.innerHTML = `
-        <div class="wire-book" aria-label="我们的透明回忆书">
-            <div class="wire-book-outline wire-outline-left"></div>
-            <div class="wire-book-outline wire-outline-right"></div>
-            <div class="wire-book-spine"></div>
-            <div class="wire-book-cover wire-cover-left"></div>
-            <div class="wire-book-cover wire-cover-right"></div>
-            <div class="wire-page-stack">
-                ${pageImages.map((url, i) => `
-                    <div class="wire-page" data-page="${i + 1}">
-                        <div class="wire-page-face wire-page-front" style="background-image:url('${url}')"><span>${i + 1}</span></div>
-                        <div class="wire-page-face wire-page-back" style="background-image:url('${url}')"><span>${i + 1}</span></div>
-                    </div>`).join('')}
-            </div>
-            <div class="wire-spread-left"></div>
-            <div class="wire-spread-right"></div>
-        </div>`;
-    document.body.appendChild(stage);
-    const book = stage.querySelector('.wire-book');
-    const pages = Array.from(stage.querySelectorAll('.wire-page'));
-    const spreadLeft = stage.querySelector('.wire-spread-left');
-    const spreadRight = stage.querySelector('.wire-spread-right');
-    spreadLeft.style.backgroundImage = `url('${pageImages[4]}')`;
-    spreadRight.style.backgroundImage = `url('${pageImages[5]}')`;
+    const pageWidth = window.innerWidth <= 768 ? 360 : 470;
+    const pageHeight = window.innerWidth <= 768 ? 500 : 650;
+    const book = new THREE.Group();
+    book.position.set(0, 0, -260);
+    book.scale.set(.72, .72, .72);
+    sceneCSS.add(book);
 
-    const preloadPage = (url) => new Promise(resolve => {
+    const makeSurface = (imageUrl, side) => {
+        const surface = document.createElement('div');
+        surface.className = `three-book-page-surface ${side || ''}`;
+        surface.style.width = `${pageWidth}px`;
+        surface.style.height = `${pageHeight}px`;
+        surface.style.backgroundImage = `url('${imageUrl}')`;
+        return surface;
+    };
+    const makeLeaf = (imageUrl, index, z) => {
+        const holder = document.createElement('div');
+        holder.className = 'three-book-page-holder';
+        holder.style.width = `${pageWidth}px`;
+        holder.style.height = `${pageHeight}px`;
+        holder.style.zIndex = String(z);
+        const surface = makeSurface(imageUrl, 'page-front');
+        const reverse = makeSurface(imageUrl, 'page-back');
+        holder.appendChild(surface);
+        holder.appendChild(reverse);
+        const cssPage = new THREE.CSS3DObject(holder);
+        cssPage.position.set(pageWidth / 2, 0, z * .15);
+        book.add(cssPage);
+        return { cssPage, holder, surface, reverse, index };
+    };
+    const makeOutline = (side) => {
+        const el = document.createElement('div');
+        el.className = `three-book-outline-page ${side}`;
+        el.style.width = `${pageWidth}px`;
+        el.style.height = `${pageHeight}px`;
+        const obj = new THREE.CSS3DObject(el);
+        obj.position.set(side === 'left' ? -pageWidth / 2 : pageWidth / 2, 0, -10);
+        book.add(obj);
+        return obj;
+    };
+
+    // 透明线框书本的左右底页、书脊和 6 个独立照片页。
+    makeOutline('left');
+    makeOutline('right');
+    const spineEl = document.createElement('div');
+    spineEl.className = 'three-book-spine-line';
+    spineEl.style.height = `${pageHeight + 30}px`;
+    const spine = new THREE.CSS3DObject(spineEl);
+    spine.position.set(0, 0, 18);
+    book.add(spine);
+    const leaves = pageImages.map((url, index) => makeLeaf(url, index, 30 - index));
+
+    const coverLeftEl = document.createElement('div');
+    coverLeftEl.className = 'three-book-cover-line left';
+    coverLeftEl.style.width = `${pageWidth}px`;
+    coverLeftEl.style.height = `${pageHeight}px`;
+    const coverLeft = new THREE.CSS3DObject(coverLeftEl);
+    coverLeft.position.set(-pageWidth / 2, 0, 28);
+    book.add(coverLeft);
+
+    const coverRightHolder = document.createElement('div');
+    coverRightHolder.className = 'three-book-cover-holder';
+    coverRightHolder.style.width = `${pageWidth}px`;
+    coverRightHolder.style.height = `${pageHeight}px`;
+    const coverRightEl = document.createElement('div');
+    coverRightEl.className = 'three-book-cover-line right';
+    coverRightEl.style.width = `${pageWidth}px`;
+    coverRightEl.style.height = `${pageHeight}px`;
+    coverRightHolder.appendChild(coverRightEl);
+    const coverRight = new THREE.CSS3DObject(coverRightHolder);
+    coverRight.position.set(pageWidth / 2, 0, 35);
+    book.add(coverRight);
+
+    const preload = (url) => new Promise(resolve => {
         const image = new Image();
         image.decoding = 'async';
         image.onload = () => image.decode ? image.decode().catch(() => {}).finally(resolve) : resolve();
         image.onerror = resolve;
         image.src = url;
     });
-    Promise.all(pageImages.map(preloadPage)).then(() => {
-        stage.classList.add('wire-ready');
-        requestAnimationFrame(() => book.classList.add('wire-open'));
-        pages.forEach((page, index) => {
-            page.style.zIndex = String(pageCount - index + 20);
-            setTimeout(() => {
-                page.classList.add('wire-turned');
-                setTimeout(() => { page.style.zIndex = String(10 + index); }, 620);
-            }, 850 + index * 650);
+    Promise.all(pageImages.map(preload)).then(() => {
+        book.visible = true;
+        new TWEEN.Tween(book.scale).to({ x: 1, y: 1, z: 1 }, 850).easing(TWEEN.Easing.Cubic.Out).start();
+        new TWEEN.Tween(book.position).to({ x: 0, y: 0, z: 0 }, 850).easing(TWEEN.Easing.Cubic.Out).start();
+        // 右封面打开，露出书页；页面随后逐页翻向左侧。
+        const coverState = { angle: 0 };
+        new TWEEN.Tween(coverState).to({ angle: -Math.PI * .92 }, 900).delay(650).easing(TWEEN.Easing.Cubic.InOut).onUpdate(() => {
+            coverRightEl.style.transformOrigin = 'left center';
+            coverRightEl.style.transform = `rotateY(${coverState.angle}rad)`;
+        }).start();
+        leaves.forEach((leaf, index) => {
+            const flip = { angle: 0 };
+            new TWEEN.Tween(flip)
+                .to({ angle: -Math.PI }, 680)
+                .delay(1350 + index * 620)
+                .easing(TWEEN.Easing.Cubic.InOut)
+                .onUpdate(() => {
+                    leaf.surface.style.transformOrigin = 'left center';
+                    leaf.surface.style.transform = `rotateY(${flip.angle}rad)`;
+                    leaf.reverse.style.transformOrigin = 'left center';
+                    leaf.reverse.style.transform = `rotateY(${flip.angle + Math.PI}rad)`;
+                })
+                .start();
         });
-        setTimeout(() => book.classList.add('wire-spread'), 5050);
-        setTimeout(() => book.classList.add('wire-zoom'), 5450);
         setTimeout(() => {
-            stage.classList.add('wire-exit');
-            launchHeartFromBook(previousAutoRotate, stage);
-        }, 6100);
+            // 摊开时让左右照片页清晰可见，再推进镜头进入中缝。
+            leaves.forEach((leaf, index) => {
+                leaf.holder.style.opacity = index >= 4 ? '0' : '0.18';
+            });
+            leaves[4].holder.style.opacity = '1';
+            leaves[5].holder.style.opacity = '1';
+        }, 5050);
+        setTimeout(() => {
+            controls.enabled = false;
+            new TWEEN.Tween(camera.position).to({ x: 0, y: 0, z: 520 }, 1050).easing(TWEEN.Easing.Cubic.InOut).start();
+            new TWEEN.Tween(book.rotation).to({ x: 0, y: 0, z: 0 }, 1050).easing(TWEEN.Easing.Cubic.InOut).start();
+        }, 5550);
+        setTimeout(() => {
+            sceneCSS.remove(book);
+            camera.position.copy(previousCameraPosition);
+            controls.target.copy(previousTarget);
+            controls.enabled = previousEnabled;
+            controls.autoRotate = previousAutoRotate;
+            controls.update();
+            launchHeartFromBook(previousAutoRotate, null);
+        }, 6850);
     });
 }
 
-function launchHeartFromBook(previousAutoRotate, bookStage) {
+function launchHeartFromBook(previousAutoRotate, unusedBookStage) {
     setTimeout(() => {
-        if (bookStage && bookStage.parentElement) bookStage.remove();
         for (let i = 0; i < objects.length; i++) {
             const object = objects[i];
             const side = i % 4;
