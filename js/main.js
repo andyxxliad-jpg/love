@@ -62,6 +62,13 @@ function startExperience() {
     setTimeout(() => {
         if (!messagePlaying) showModal('tips-modal');
     }, 2600);
+    // 首次进入：右下角显示双击提示
+    setTimeout(() => {
+        if (!localStorage.getItem('doubleTapHintShown')) {
+            const hint = document.getElementById('double-tap-hint');
+            if (hint) hint.style.display = 'block';
+        }
+    }, 3200);
 }
 
 const btnEnter = document.getElementById('btn-enter');
@@ -871,6 +878,9 @@ async function playMessage() {
 }
 function switchShape() {
     if (shapeBusy) return;
+    const hint = document.getElementById('double-tap-hint');
+    if (hint) hint.style.display = 'none';
+    localStorage.setItem('doubleTapHintShown', 'true');
     shapeBusy = true;
     setTimeout(() => { shapeBusy = false; }, 2300);
     currentShapeIndex = ( currentShapeIndex + 1 ) % SHAPE_NAMES.length;
