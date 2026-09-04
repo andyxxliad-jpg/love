@@ -21,12 +21,12 @@
 #loader.hide{opacity:0;pointer-events:none}.load-box{width:min(84vw,380px);padding:28px 24px;text-align:center;border:1px solid rgba(255,180,215,.3);border-radius:24px;background:rgba(255,255,255,.07);box-shadow:0 16px 50px #0008}.load-title{font:700 31px Caveat,cursive;color:var(--pink);margin-bottom:14px}.load-text{font-size:16px}.bar{height:8px;margin:18px 0 8px;border-radius:8px;background:#ffffff1c;overflow:hidden}.bar>i{display:block;width:0;height:100%;border-radius:inherit;background:linear-gradient(90deg,#ffc1da,var(--glow));box-shadow:0 0 16px var(--glow);transition:width .2s}.count{font-size:12px;opacity:.7}
 #actions{position:fixed;z-index:25;left:0;right:0;bottom:5vh;text-align:center;pointer-events:none;opacity:0;transition:opacity .5s}#actions.show{opacity:1;pointer-events:auto}button{font:16px 'ZCOOL KuaiLe',sans-serif;color:white;border:1px solid #ffb6d5aa;border-radius:30px;padding:12px 27px;background:#ff709e99;box-shadow:0 0 20px #ff4e9e55;cursor:pointer}button:active{transform:scale(.96)}
 /* The book is made from CSS3DObjects. These elements are transparent line-art surfaces, not a flat overlay. */
-.book-base,.book-cover,.book-spine,.paper,.face{position:relative;transform-style:preserve-3d;pointer-events:none}
-.book-base{border:2px solid #ffb5d78c;background:#ffffff08;box-shadow:0 0 18px #ff5ea566,inset 0 0 22px #ff9bc51c}.book-base.left{border-right:0;border-radius:22px 0 0 22px}.book-base.right{border-left:0;border-radius:0 22px 22px 0}
+.book-frame,.book-cover,.book-spine,.paper{position:relative;transform-style:preserve-3d;pointer-events:none}
+.book-frame{border:2px solid #ffb5d7cc;background:transparent;border-radius:22px;box-shadow:0 0 18px #ff5ea566,inset 0 0 22px #ff9bc51c}
 .book-spine{background:#ffc1dfdd;border-radius:8px;box-shadow:0 0 20px var(--glow)}
 .book-cover{border:3px solid #ff9fcae6;background:transparent;box-shadow:0 0 22px #ff55a866}.book-cover.left{border-right:0;border-radius:20px 0 0 20px}.book-cover.right{border-left:0;border-radius:0 20px 20px 0}
-.paper{border:2px solid #ffc6dfdd;border-radius:3px 20px 20px 3px;background:#fffaf2;box-shadow:7px 0 0 #ebd9dcaa,0 0 18px #ff66aa66,inset 0 0 24px #71453b2c}
-.face{position:absolute;inset:0;overflow:hidden;background:#fffaf2;backface-visibility:hidden}.face.front{border-radius:2px 17px 17px 2px;transform:translateZ(2px)}.face.back{border-radius:17px 2px 2px 17px;transform:rotateY(180deg) translateZ(2px)}.face img{display:block;width:100%;height:100%;object-fit:cover;user-select:none;-webkit-user-drag:none}
+.paper{overflow:hidden;border:2px solid #ffc6dfdd;border-radius:3px 20px 20px 3px;background:#fffaf2;box-shadow:7px 0 0 #ebd9dcaa,0 0 18px #ff66aa66,inset 0 0 24px #71453b2c;backface-visibility:visible}
+.paper img{display:block;width:100%;height:100%;object-fit:cover;user-select:none;-webkit-user-drag:none}
 @media(max-width:700px){.title{font-size:27px}.hint{font-size:12px}.load-box{padding:24px 20px}.book-base,.book-cover,.paper{border-width:1.5px}}
 </style>
 </head>
@@ -66,8 +66,8 @@ function panel(className,w,h){const e=document.createElement('div');e.className=
 function cssObject(className,w,h,x,y,z){const o=new THREE.CSS3DObject(panel(className,w,h));o.position.set(x,y,z);return o}
 function createBook(photos){
   book=new THREE.Group();book.position.set(0,0,0);book.rotation.set(THREE.MathUtils.degToRad(-8),THREE.MathUtils.degToRad(-10),0);book.scale.set(.7,.7,.7);scene.add(book);
-  book.add(cssObject('book-base left',pageW,pageH,-pageW/2,0,-30));
-  book.add(cssObject('book-base right',pageW,pageH,pageW/2,0,-30));
+  // 单一完整底框，避免左右两个 CSS3D 平面产生断线和中缝裂缝。
+  book.add(cssObject('book-frame',pageW*2,pageH,-pageW,0,-30));
   book.add(cssObject('book-spine',14,pageH+38,0,0,50));
   book.add(cssObject('book-cover left',pageW,pageH,-pageW/2,0,42));
   const coverHinge=new THREE.Object3D();coverHinge.position.set(0,0,48);book.add(coverHinge);
@@ -75,8 +75,8 @@ function createBook(photos){
   currentPages=photos.map((photo,index)=>{
     const hinge=new THREE.Object3D();hinge.position.set(0,0,40-index*3);book.add(hinge);
     const paper=panel('paper',pageW,pageH);paper.style.zIndex=String(50-index);
-    const front=panel('face front',pageW,pageH),back=panel('face back',pageW,pageH);
-    [front,back].forEach(face=>{const img=document.createElement('img');img.src=photo.url;img.alt='我们的回忆 '+photo.index;img.draggable=false;face.appendChild(img);paper.appendChild(face)});
+    // 每页使用一个完整照片面，避免 CSS backface 在翻页中产生半透明/半页。
+    const img=document.createElement('img');img.src=photo.url;img.alt='我们的回忆 '+photo.index;img.draggable=false;paper.appendChild(img);
     const page=new THREE.CSS3DObject(paper);page.position.set(pageW/2,0,0);hinge.add(page);
     return {hinge,paper};
   });
