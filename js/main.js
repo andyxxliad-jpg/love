@@ -224,6 +224,9 @@ let controls;
 const objects = [];
 const targets = { heart: [], tree: [], ferris: [], galaxy: [], rose: [], firework: [], infinity: [], vortex: [], message: [] };
 
+let appConfig = null;
+appConfig = Object.assign(defaultSettings(), loadSettings());
+
 // 关键修改点：设定为 120 张
 const photoCount = (appConfig && appConfig.photoCountCfg) ? appConfig.photoCountCfg : 120; 
 const totalUploadedPhotos = 120; 
@@ -248,7 +251,6 @@ let decorPoints = null;
 let namePoints = null;
 let nameTimer = null;
 let nameVisible = false;
-let appConfig = null;
 const MESSAGE_TEXT = [
   '其实我不太会表达自己，也是一个特别怕麻烦的人。可是你的出现让我觉得我也是生动的人。谢谢你给了我一个很好的温度，让我感受到了爱和温暖。想起你，我就觉得有了依靠，做事情都多了一份底气。难怪大家都说，被爱好似有靠山。',
   '其实，我真的远比你想象中更需要你，更在意你。谢谢你总能照顾到我的情绪，在意我说过的话。相处这么久也让我很开心，因为有你在。谢谢你靠近我、温暖我、了解我、陪伴我。',
@@ -258,7 +260,6 @@ const MESSAGE_TEXT = [
 let currentShapeIndex = 0;
 let shapeBusy = false;
 
-appConfig = Object.assign(defaultSettings(), loadSettings());
 init();
 preloadAllPhotos();
 animate();
