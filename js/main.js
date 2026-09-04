@@ -99,6 +99,7 @@ function scheduleMessageTimer() {
 }
 function startMusic() {
     if (!audio || musicStarted) return;
+    if (!photosReady) return; // 照片没加载完，先不播放音乐
     if (!Object.assign(defaultSettings(), loadSettings()).musicOn) return;
     musicStarted = true;
     audio.muted = false;
@@ -114,72 +115,17 @@ audio.preload = 'auto';
     document.addEventListener(ev, startMusic, { passive: true });
 });
 
-// ===== 首次进入：长按屏幕，粉色扩散占满后进入 =====
-const holdOverlay = document.getElementById('hold-overlay');
-const holdPink = document.getElementById('hold-pink');
-let holdActive = false, holdDone = false, holdTimer = null, holdStartT = 0;
-
-function startExperienceWhenReady() {
-    if (photosReady) { startExperience(); return; }
-    const wait = setInterval(() => {
-        if (photosReady) { clearInterval(wait); startExperience(); }
-    }, 120);
-}
-
-function enterAfterHold() {
-    if (holdDone) return;
-    holdDone = true;
-    holdActive = false;
-    if (holdTimer) { clearInterval(holdTimer); holdTimer = null; }
-    holdOverlay.classList.remove('show');
-    startMusic();
-    startExperienceWhenReady();
-}
-
-function holdUpdate() {
-    const p = Math.min(1, (performance.now() - holdStartT) / 2200);
-    // 粉色面积随长按时长扩大，直至覆盖全屏
-    holdPink.style.transform = 'translate(-50%, -50%) scale(' + p + ')';
-    // 颜色由淡粉渐变为深一号的粉
-    const g = Math.round(182 - p * 42);
-    const b = Math.round(193 - p * 30);
-    holdPink.style.backgroundColor = 'rgba(255,' + g + ',' + b + ',' + (0.4 + p * 0.35) + ')';
-    if (p >= 1) enterAfterHold();
-}
-
-function holdStart() {
-    if (holdDone) return;
-    holdActive = true;
-    holdStartT = performance.now();
-    holdPink.style.backgroundColor = 'rgba(255,182,193,0.4)';
-    holdPink.style.transform = 'translate(-50%, -50%) scale(0)';
-    if (holdTimer) clearInterval(holdTimer);
-    holdTimer = setInterval(holdUpdate, 16);
-}
-
-function holdEnd() {
-    if (holdDone) return;
-    holdActive = false;
-    if (holdTimer) { clearInterval(holdTimer); holdTimer = null; }
-    holdPink.style.transform = 'translate(-50%, -50%) scale(0)';
-}
-
-holdOverlay.addEventListener('pointerdown', (e) => { e.preventDefault(); holdStart(); });
-holdOverlay.addEventListener('pointerup', holdEnd);
-holdOverlay.addEventListener('pointercancel', holdEnd);
-holdOverlay.addEventListener('pointerleave', holdEnd);
-
 btnEnter.addEventListener('click', () => {
     welcomeScreen.style.opacity = '0';
     localStorage.setItem('universeVisited_v14', 'true');
     setTimeout(() => {
         welcomeScreen.style.display = 'none';
-        if (isFirstTime) {
-            // 首次进入：长按屏幕，粉色扩散占满后进入
-            holdOverlay.classList.add('show');
-        } else {
-            startMusic();
-            startExperienceWhenReady();
+        startMusic();
+        if (photosReady) startExperience();
+        else {
+            const wait = setInterval(() => {
+                if (photosReady) { clearInterval(wait); startExperience(); }
+            }, 120);
         }
     }, 1000);
 });
@@ -1039,6 +985,7 @@ function switchShape() {
 let lastTapTime = 0, lastTapX = 0, lastTapY = 0;
 let suppressPhotoClick = false;
 window.addEventListener('pointerdown', (e) => {
+    if (!photosReady) return; // 照片没加载完，点击不记录任何操作
     if (messagePlaying || tourPlaying) return;
     if (e.target.closest && e.target.closest('.element')) return;
     const now = performance.now();
