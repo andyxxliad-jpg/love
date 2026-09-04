@@ -28,6 +28,27 @@ const mainUI = document.getElementById('main-ui');
 let audio = document.getElementById('bgm');
 
 // 图片采用渐进式加载，避免首屏同时解码 120 张照片造成动画卡顿。
+// 首屏先使用轻量缩略图，确保进场动画从第一帧就有照片。
+let photoThumbsReady = Promise.resolve();
+
+function preloadPhotoThumbnails() {
+    const jobs = [];
+    for (let index = 1; index <= totalUploadedPhotos; index++) {
+        jobs.push(new Promise(resolve => {
+            const image = new Image();
+            image.decoding = 'async';
+            image.onload = () => {
+                if (image.decode) image.decode().catch(() => {}).finally(resolve);
+                else resolve();
+            };
+            image.onerror = resolve;
+            image.src = `assets/images/thumbs/${index}.webp`;
+        }));
+    }
+    photoThumbsReady = Promise.all(jobs);
+    return photoThumbsReady;
+}
+
 const imageCache = new Map();
 const imageQueue = [];
 const photoElements = [];
@@ -107,22 +128,29 @@ btnLocation.addEventListener('click', () => {
     }
 });
 
+let experienceStarted = false;
 btnEnter.addEventListener('click', () => {
-    welcomeScreen.style.opacity = '0';
-    localStorage.setItem('universeVisited_v14', 'true');
-    setTimeout(() => {
-        welcomeScreen.style.display = 'none';
-        mainUI.style.opacity = '1';
-        mainUI.style.pointerEvents = 'none';
-        
-        audio.play().catch(e => console.log('Audio autoplay blocked:', e));
-        enterAnimation();
-        startProgressivePhotoLoading();
-
-        controlsUI.classList.remove('hidden');
-        uiFadeTimeout = setTimeout(() => { controlsUI.classList.add('hidden'); }, 3000);
-        startQuotesCycle();
-    }, 1000);
+    if (experienceStarted) return;
+    experienceStarted = true;
+    btnEnter.disabled = true;
+    const originalLabel = btnEnter.innerText;
+    btnEnter.innerText = '正在准备照片... ✨';
+    photoThumbsReady.then(() => {
+        btnEnter.innerText = originalLabel;
+        welcomeScreen.style.opacity = '0';
+        localStorage.setItem('universeVisited_v14', 'true');
+        setTimeout(() => {
+            welcomeScreen.style.display = 'none';
+            mainUI.style.opacity = '1';
+            mainUI.style.pointerEvents = 'none';
+            audio.play().catch(e => console.log('Audio autoplay blocked:', e));
+            enterAnimation();
+            startProgressivePhotoLoading();
+            controlsUI.classList.remove('hidden');
+            uiFadeTimeout = setTimeout(() => { controlsUI.classList.add('hidden'); }, 3000);
+            startQuotesCycle();
+        }, 1000);
+    });
 });
 
 const startDate = new Date('2026-08-07T00:00:00').getTime();
@@ -241,6 +269,7 @@ const totalUploadedPhotos = 120;
 let particles;
 
 init();
+preloadPhotoThumbnails();
 animate();
 
 function init() {
@@ -296,6 +325,7 @@ function init() {
         // 背景图不在初始化阶段加载，交给渐进式队列处理。
         element.dataset.imageIndex = imgIndex;
         element.style.backgroundColor = 'rgba(255, 140, 163, 0.08)';
+        element.style.backgroundImage = `url('assets/images/thumbs/${imgIndex}.webp')`;
         photoElements.push({ element, index: imgIndex });
         
         let pointerDownPos = { x: 0, y: 0 };
@@ -489,9 +519,11 @@ if (!isFirstTime) {
         document.getElementById('main-ui').style.opacity = '1';
         document.getElementById('main-ui').style.pointerEvents = 'none';
         
-        enterAnimation();
-        startProgressivePhotoLoading();
-        startQuotesCycle();
+        photoThumbsReady.then(() => {
+            enterAnimation();
+            startProgressivePhotoLoading();
+            startQuotesCycle();
+        });
 
         const audioTip = document.createElement('div');
         audioTip.innerText = "点击屏幕播放我们的回忆原声 ✨";
