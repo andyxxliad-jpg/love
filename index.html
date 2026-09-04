@@ -121,6 +121,22 @@
       <label><input type="checkbox" id="cfg-fivetap"> 五连击播放文字动画</label>
     </div>
     <div class="console-sec">
+      <h4>动画参数</h4>
+      <label>运镜环绕速度（秒）<input type="number" id="cfg-tourduration" min="3" max="30"></label>
+      <label>环绕距离倍率 <input type="number" id="cfg-tourdistance" step="0.1" min="0.5" max="2"></label>
+      <label>爱心大小倍率 <input type="number" id="cfg-heartscale" step="0.1" min="0.5" max="2"></label>
+      <label>爱心图片数量 <input type="number" id="cfg-photocount" min="10" max="120"></label>
+    </div>
+    <div class="console-sec">
+      <h4>网站信息</h4>
+      <label>网站标题 <input type="text" id="cfg-title"></label>
+      <label>网站描述 <input type="text" id="cfg-desc"></label>
+    </div>
+    <div class="console-sec">
+      <h4>数据</h4>
+      <div class="console-actions"><button id="cfg-preview">预览效果</button><button id="cfg-export">导出配置JSON</button><button id="cfg-reset">一键重置</button></div>
+    </div>
+    <div class="console-sec">
       <h4>日历记录</h4>
       <div class="cal-add-row"><input type="date" id="cal-date"><input type="text" id="cal-text" placeholder="发生了什么"><button id="cal-add">添加</button></div>
       <div id="cal-list"></div>
