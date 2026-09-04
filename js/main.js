@@ -230,6 +230,7 @@ const photoCount = 120;
 const totalUploadedPhotos = 120; 
 
 let particles;
+let trunkBasePos, trunkTargetPos, trunkPoints, trunkTargetCol;
 
 init();
 preloadAllPhotos();
@@ -486,8 +487,6 @@ function enterAnimation() {
     new TWEEN.Tween(this).to({}, 6000).onUpdate(render).start();
 }
 
-let trunkBasePos, trunkTargetPos, trunkPoints;
-let trunkTargetCol;
 const SHAPE_NAMES = [ 'heart', 'tree', 'snowflake', 'ferris', 'galaxy', 'windchime' ];
 let currentShapeIndex = 0;
 let shapeBusy = false;
