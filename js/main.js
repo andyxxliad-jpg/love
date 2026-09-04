@@ -27,109 +27,6 @@ const welcomeScreen = document.getElementById('welcome-screen');
 const mainUI = document.getElementById('main-ui');
 let audio = document.getElementById('bgm');
 
-// 先加载轻量预览图并显示进度；高清图在入场动画结束后替换。
-const imageCache = new Map();
-const photoElements = [];
-const MAX_IMAGE_LOADS = 3;
-let thumbsReady = false;
-let fullLoadingStarted = false;
-let thumbsLoaded = 0;
-let weatherReady = false;
-
-function setLoadingProgress() {
-    const percent = Math.round((thumbsLoaded / totalUploadedPhotos) * 100);
-    const bar = document.getElementById('photo-progress-bar');
-    const count = document.getElementById('photo-loading-count');
-    if (bar) bar.style.width = `${percent}%`;
-    if (count) count.innerText = `预览照片准备中 ${thumbsLoaded} / ${totalUploadedPhotos}`;
-}
-
-function showEnterButtonWhenReady() {
-    if (!weatherReady || !thumbsReady) return;
-    const status = document.getElementById('photo-loading-status');
-    if (status) status.innerText = '相册准备完成，可以进入啦 ✨';
-    btnEnter.style.display = 'inline-block';
-    btnEnter.disabled = false;
-    btnEnter.innerText = '去看我给你准备的惊喜 🚀';
-}
-
-function hideLoadingScreen() {
-    const screen = document.getElementById('loading-screen');
-    if (!screen) return;
-    screen.classList.add('hidden');
-}
-
-function preloadPhotoThumbnails() {
-    const startedAt = Date.now();
-    setLoadingProgress();
-    let next = 1;
-    const worker = async () => {
-        while (next <= totalUploadedPhotos) {
-            const index = next++;
-            await new Promise(resolve => {
-                const image = new Image();
-                image.onload = () => {
-                    photoElements.forEach(item => {
-                        if (item.index === index) item.element.style.backgroundImage = `url(\"assets/images/thumbs/${index}.webp\")`;
-                    });
-                    resolve();
-                };
-                image.onerror = resolve;
-                image.src = `assets/images/thumbs/${index}.webp`;
-            });
-            thumbsLoaded++;
-            setLoadingProgress();
-        }
-    };
-    Promise.all(Array.from({length: MAX_IMAGE_LOADS}, worker)).then(() => {
-        thumbsLoaded = totalUploadedPhotos;
-        setLoadingProgress();
-        thumbsReady = true;
-        const elapsed = Date.now() - startedAt;
-        // Keep the progress screen visible briefly, even on a warm cache.
-        setTimeout(() => {
-            hideLoadingScreen();
-            showEnterButtonWhenReady();
-        }, Math.max(450, 900 - elapsed));
-    });
-}
-
-function loadFullPhoto(index) {
-    if (imageCache.has(index)) return imageCache.get(index);
-    const promise = new Promise((resolve, reject) => {
-        const image = new Image();
-        image.decoding = 'async';
-        image.onload = () => {
-            const finish = () => {
-                photoElements.forEach(item => {
-                    if (item.index === index) item.element.style.backgroundImage = `url(\"assets/images/${index}.webp\")`;
-                });
-                resolve();
-            };
-            if (image.decode) image.decode().catch(() => {}).finally(finish);
-            else finish();
-        };
-        image.onerror = reject;
-        image.src = `assets/images/${index}.webp`;
-    });
-    imageCache.set(index, promise);
-    return promise;
-}
-
-function startFullPhotoLoading() {
-    if (fullLoadingStarted) return;
-    fullLoadingStarted = true;
-    let next = 1;
-    const worker = async () => {
-        while (next <= totalUploadedPhotos) {
-            const index = next++;
-            try { await loadFullPhoto(index); } catch (error) { console.warn(`照片 ${index} 加载失败`, error); }
-        }
-    };
-    // Wait until the entrance animation has finished before decoding large images.
-    setTimeout(() => Promise.all(Array.from({length: MAX_IMAGE_LOADS}, worker)), 7000);
-}
-
 btnLocation.addEventListener('click', () => {
     weatherText.innerHTML = "正在感应你的位置... 🛰️";
     btnLocation.style.display = 'none';
@@ -155,32 +52,28 @@ btnLocation.addEventListener('click', () => {
             } catch (err) {
                 weatherText.innerHTML = "网络好像有点小调皮。<br>不过没关系，有我的每一天都是好天气！☀️";
             }
-            weatherReady = true;
-            showEnterButtonWhenReady();
+            btnEnter.style.display = 'inline-block';
         }, (error) => {
             weatherText.innerHTML = "哎呀，没有拿到位置信息呢。<br>没关系，反正你在我心里~ 🌌";
-            weatherReady = true;
-            showEnterButtonWhenReady();
+            btnEnter.style.display = 'inline-block';
         });
     } else {
         weatherText.innerHTML = "设备不支持定位功能呢。<br>直接进来吧！";
-        weatherReady = true;
-            showEnterButtonWhenReady();
+        btnEnter.style.display = 'inline-block';
     }
 });
 
-let experienceStarted = false;
 btnEnter.addEventListener('click', () => {
-    if (experienceStarted || !thumbsReady) return;
-    experienceStarted = true;
     welcomeScreen.style.opacity = '0';
     localStorage.setItem('universeVisited_v14', 'true');
     setTimeout(() => {
         welcomeScreen.style.display = 'none';
         mainUI.style.opacity = '1';
         mainUI.style.pointerEvents = 'none';
+        
         audio.play().catch(e => console.log('Audio autoplay blocked:', e));
         enterAnimation();
+
         controlsUI.classList.remove('hidden');
         uiFadeTimeout = setTimeout(() => { controlsUI.classList.add('hidden'); }, 3000);
         startQuotesCycle();
@@ -303,7 +196,6 @@ const totalUploadedPhotos = 120;
 let particles;
 
 init();
-preloadPhotoThumbnails();
 animate();
 
 function init() {
@@ -311,7 +203,7 @@ function init() {
     camera.position.z = 2800; 
     
     sceneWebGL = new THREE.Scene();
-    const particleCount = window.innerWidth <= 768 ? 1400 : 2400;
+    const particleCount = 3500;
     const geometry = new THREE.BufferGeometry();
     const positions = new Float32Array(particleCount * 3);
     for(let i=0; i<particleCount*3; i++) {
@@ -342,10 +234,7 @@ function init() {
     particles = new THREE.Points(geometry, pMaterial);
     sceneWebGL.add(particles);
 
-    rendererWebGL = new THREE.WebGLRenderer({
-        alpha: true,
-        antialias: window.devicePixelRatio < 2
-    });
+    rendererWebGL = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     rendererWebGL.setSize( window.innerWidth, window.innerHeight );
     document.getElementById('webgl-container').appendChild( rendererWebGL.domElement );
 
@@ -356,11 +245,7 @@ function init() {
         element.className = 'element';
         
         let imgIndex = (i % totalUploadedPhotos) + 1;
-        // 背景图不在初始化阶段加载，交给渐进式队列处理。
-        element.dataset.imageIndex = imgIndex;
-        element.style.backgroundColor = 'rgba(255, 140, 163, 0.08)';
-        element.style.backgroundImage = `url('assets/images/thumbs/${imgIndex}.webp')`;
-        photoElements.push({ element, index: imgIndex });
+        element.style.backgroundImage = `url('assets/images/${imgIndex}.png')`;
         
         let pointerDownPos = { x: 0, y: 0 };
         element.addEventListener('pointerdown', (e) => {
@@ -370,15 +255,12 @@ function init() {
             const dx = Math.abs(e.clientX - pointerDownPos.x);
             const dy = Math.abs(e.clientY - pointerDownPos.y);
             if (dx < 5 && dy < 5) {
-                const enlargedPhoto = document.getElementById('enlarged-photo');
-                const currentImageIndex = Number(element.dataset.currentImageIndex || imgIndex);
-                enlargedPhoto.src = `assets/images/${currentImageIndex}.webp`;
+                document.getElementById('enlarged-photo').src = `assets/images/${imgIndex}.png`;
                 showModal('photo-modal');
             }
         });
 
         const objectCSS = new THREE.CSS3DObject( element );
-        objectCSS.element = element;
         objectCSS.position.x = 6000;
         objectCSS.position.y = 0;
         objectCSS.position.z = 0;
@@ -456,65 +338,14 @@ function init() {
 
 function enterAnimation() {
     TWEEN.removeAll();
-    const previousAutoRotate = controls.autoRotate;
-    controls.autoRotate = false;
-    const totalDuration = 5500;
-    const stripSpacing = window.innerWidth <= 768 ? 220 : 300;
-    const cardWidth = window.innerWidth <= 768 ? '150px' : '190px';
-    const cardHeight = window.innerWidth <= 768 ? '200px' : '250px';
-    const startX = window.innerWidth <= 768 ? 780 : 1100;
-    const endMargin = window.innerWidth <= 768 ? 900 : 1250;
-    const stripLength = (objects.length - 1) * stripSpacing;
-    const travelDistance = stripLength + startX + endMargin;
-    const state = { progress: 0 };
-
-    // 120 张照片组成一整条横向胶片，整体连续地从右向左快速经过屏幕。
+    // 不再播放开场飞入动画，进入后直接显示完整爱心。
     for (let i = 0; i < objects.length; i++) {
         const object = objects[i];
-        object.visible = true;
-        object.element.style.width = cardWidth;
-        object.element.style.height = cardHeight;
-        object.element.dataset.currentImageIndex = i + 1;
-        object.element.style.backgroundImage = `url(\"assets/images/thumbs/${i + 1}.webp\")`;
-        object.rotation.set(0, 0, 0);
+        const target = targets.heart[i];
+        object.position.copy(target.position);
+        object.rotation.copy(target.rotation);
     }
-
-    const updateStrip = () => {
-        const offset = state.progress * travelDistance;
-        for (let i = 0; i < objects.length; i++) {
-            const object = objects[i];
-            const x = startX + i * stripSpacing - offset;
-            const distance = Math.abs(x);
-            // 每张图片经过中央时平滑放大，离开中央后再缩小。
-            const focus = Math.max(0, 1 - distance / (stripSpacing * 1.25));
-            const scale = 0.72 + focus * 0.48;
-            object.position.set(x, 0, focus * 260);
-            object.scale.set(scale, scale, scale);
-        }
-    };
-
-    updateStrip();
-    new TWEEN.Tween(state)
-        .to({ progress: 1 }, totalDuration)
-        .easing(TWEEN.Easing.Linear.None)
-        .onUpdate(updateStrip)
-        .onComplete(() => {
-            // 整条照片展示完毕后，从左侧打散并汇聚成爱心。
-            for (let i = 0; i < objects.length; i++) {
-                const object = objects[i];
-                object.element.style.width = '90px';
-                object.element.style.height = '120px';
-                object.position.set(-3600 - Math.random() * 1400, (Math.random() - 0.5) * 2200, (Math.random() - 0.5) * 1800);
-                object.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-                object.scale.set(0.72, 0.72, 0.72);
-            }
-            transform(targets.heart, 2200);
-            setTimeout(() => {
-                controls.autoRotate = previousAutoRotate;
-                startFullPhotoLoading();
-            }, 2500);
-        })
-        .start();
+    render();
 }
 
 function transform( targets, duration ) {
@@ -522,7 +353,6 @@ function transform( targets, duration ) {
     for ( let i = 0; i < objects.length; i ++ ) {
         const object = objects[ i ];
         const target = targets[ i ];
-        object.visible = true;
 
         new TWEEN.Tween( object.position )
             .to( { x: target.position.x, y: target.position.y, z: target.position.z }, Math.random() * duration + duration )
@@ -533,12 +363,8 @@ function transform( targets, duration ) {
             .to( { x: target.rotation.x, y: target.rotation.y, z: target.rotation.z }, Math.random() * duration + duration )
             .easing( TWEEN.Easing.Exponential.InOut )
             .start();
-
-        new TWEEN.Tween( object.scale )
-            .to( { x: 1, y: 1, z: 1 }, Math.random() * duration + duration )
-            .easing( TWEEN.Easing.Exponential.InOut )
-            .start();
     }
+    new TWEEN.Tween( this ).to( {}, duration * 2 ).onUpdate( render ).start();
 }
 
 function onWindowResize() {
@@ -549,16 +375,17 @@ function onWindowResize() {
     render();
 }
 
-function animate(now = 0) {
-    requestAnimationFrame(animate);
+function animate() {
+    requestAnimationFrame( animate );
     TWEEN.update();
+    
     if (particles) {
         particles.rotation.y += 0.0008;
         particles.rotation.x += 0.0004;
     }
-    controls.update();
-    rendererWebGL.render(sceneWebGL, camera);
-    rendererCSS.render(sceneCSS, camera);
+    
+    controls.update(); 
+    render();
 }
 
 function render() {
@@ -575,15 +402,8 @@ if (!isFirstTime) {
         document.getElementById('main-ui').style.opacity = '1';
         document.getElementById('main-ui').style.pointerEvents = 'none';
         
-        const waitForThumbs = () => {
-            if (!thumbsReady) return setTimeout(waitForThumbs, 50);
-            requestAnimationFrame(() => {
-                document.getElementById('main-ui').style.opacity = '1';
-                enterAnimation();
-                startQuotesCycle();
-            });
-        };
-        waitForThumbs();
+        enterAnimation();
+        startQuotesCycle();
 
         const audioTip = document.createElement('div');
         audioTip.innerText = "点击屏幕播放我们的回忆原声 ✨";
