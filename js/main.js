@@ -235,9 +235,10 @@ let trunkBasePos, trunkTargetPos, trunkPoints, trunkTargetCol;
 let ferrisBasePos, ferrisTargetPos, ferrisPoints, ferrisTargetCol;
 const isFirstTime = !localStorage.getItem('universeVisited_v14');
 const SHAPE_NAMES = [ 'heart', 'tree', 'ferris', 'galaxy', 'rose', 'firework', 'infinity', 'vortex' ];
-let messagePoints = null;
 let messagePlaying = false;
 let blackPaper = null;
+let letterTextEl = null;
+let letterInnerEl = null;
 const MESSAGE_TEXT = [
   '其实我不太会表达自己，也是一个特别怕麻烦的人。可是你的出现让我觉得我也是生动的人。谢谢你给了我一个很好的温度，让我感受到了爱和温暖。想起你，我就觉得有了依靠，做事情都多了一份底气。难怪大家都说，被爱好似有靠山。',
   '其实，我真的远比你想象中更需要你，更在意你。谢谢你总能照顾到我的情绪，在意我说过的话。相处这么久也让我很开心，因为有你在。谢谢你靠近我、温暖我、了解我、陪伴我。',
@@ -386,34 +387,32 @@ function init() {
         blending: THREE.AdditiveBlending, depthWrite: false }));
     sceneWebGL.add(ferrisPoints);
 
-    // 小作文粒子（原地，在黑色纸前方）
-    const msgCount = 8000;
-    const msgGeo = new THREE.BufferGeometry();
-    const msgPos = new Float32Array(msgCount * 3);
-    for (let i = 0; i < msgCount; i++) {
-        msgPos[i*3] = (Math.random() - .5) * 6000;
-        msgPos[i*3+1] = (Math.random() - .5) * 5000;
-        msgPos[i*3+2] = (Math.random() - .5) * 4000;
-    }
-    msgGeo.setAttribute('position', new THREE.BufferAttribute(msgPos, 3));
-    messagePoints = new THREE.Points(msgGeo, new THREE.PointsMaterial({
-        size: 4.5, map: texture, transparent: true, opacity: 1,
-        blending: THREE.AdditiveBlending, depthWrite: false }));
-    sceneWebGL.add(messagePoints);
-
     rendererWebGL = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     rendererWebGL.setSize( window.innerWidth, window.innerHeight );
     document.getElementById('webgl-container').appendChild( rendererWebGL.domElement );
 
     sceneCSS = new THREE.Scene();
 
-    // 黑色纸（WebGL Mesh，位于文字粒子后面，避免盖住文字）
-    const paperGeo = new THREE.PlaneGeometry(720, 960);
-    const paperMat = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide });
-    blackPaper = new THREE.Mesh(paperGeo, paperMat);
+    // 黑色纸 + 文字（CSS3D，同层，文字在纸前面）
+    const bpEl = document.createElement('div');
+    bpEl.style.width = '720px';
+    bpEl.style.height = '960px';
+    bpEl.style.background = '#000';
+    bpEl.style.borderRadius = '10px';
+    blackPaper = new THREE.CSS3DObject(bpEl);
     blackPaper.position.set(0, 0, -30);
     blackPaper.visible = false;
-    sceneWebGL.add(blackPaper);
+    sceneCSS.add(blackPaper);
+
+    letterTextEl = document.createElement('div');
+    letterTextEl.style.cssText = 'width:680px;height:920px;display:flex;align-items:flex-start;justify-content:center;';
+    letterInnerEl = document.createElement('div');
+    letterInnerEl.style.cssText = 'width:100%;height:auto;color:#fff;font:19px/2.2 "ZCOOL KuaiLe","PingFang SC",sans-serif;text-align:left;letter-spacing:1px;white-space:pre-wrap;overflow-wrap:break-word;text-shadow:0 0 8px rgba(255,255,255,.5);transition:opacity .5s ease,transform .5s ease;';
+    letterTextEl.appendChild(letterInnerEl);
+    const letterObj = new THREE.CSS3DObject(letterTextEl);
+    letterObj.position.set(0, 0, 20);
+    letterObj.visible = false;
+    sceneCSS.add(letterObj);
 
 
     for ( let i = 0; i < photoCount; i ++ ) {
@@ -660,134 +659,35 @@ function animateFerris(toFerris) {
         })
         .start();
 }
-function wrapMsgText(text, maxChars) {
-    const lines = [];
-    let line = '';
-    for (const ch of text) {
-        line += ch;
-        if (line.length >= maxChars) { lines.push(line); line = ''; }
-    }
-    if (line) lines.push(line);
-    return lines;
-}
-function buildMessageParticles(text) {
-    const CW = 900, CH = 1300;
-    const canvas = document.createElement('canvas');
-    canvas.width = CW; canvas.height = CH;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0,0,CW,CH);
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 44px "PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    const lines = wrapMsgText(text, 11);
-    const lineH = 60;
-    const startY = CH/2 - (lines.length-1)*lineH/2;
-    lines.forEach((line, i) => ctx.fillText(line, CW/2, startY + i*lineH));
-    const data = ctx.getImageData(0,0,CW,CH).data;
-    const pts = [];
-    for (let y = 0; y < CH; y += 2) for (let x = 0; x < CW; x += 2) {
-        const i = (y*CW+x)*4;
-        if (data[i] > 150 && data[i+1] > 150 && data[i+2] > 150) {
-            const px = (x/CW - .5) * 700;
-            const py = (.5 - y/CH) * 900;
-            pts.push(px, py, 25 + (Math.random()-.5)*2);
-        }
-    }
-    return pts;
-}
-function messageScatter() {
-    const arr = [];
-    for (let i = 0; i < 8000; i++) {
-        const a = Math.random() * Math.PI * 2;
-        const r = 1200 + Math.random() * 2400;
-        arr.push(Math.cos(a)*r, Math.sin(a)*r, (Math.random()-.5)*3500);
-    }
-    return arr;
-}
-function gatherMessage(text) {
-    return new Promise(res => {
-        let targets;
-        try { targets = buildMessageParticles(text); } catch (e) { targets = []; }
-        const scatter = messageScatter();
-        const n3 = targets.length;
-        const posAttr = messagePoints.geometry.attributes.position;
-        const state = { t: 0 };
-        const total = 1.5;
-        new TWEEN.Tween(state).to({ t: total }, total * 1000).easing(TWEEN.Easing.Linear.None)
-            .onUpdate(() => {
-                const t = state.t;
-                for (let i = 0; i < 8000; i++) {
-                    const k = i*3;
-                    if (k < n3) {
-                        // 按 x 坐标（左→右）延迟，形成波浪式逐字浮现
-                        const delay = ((targets[k] + 350) / 700) * 0.55;
-                        const p = clamp((t - delay) / 0.6, 0, 1);
-                        const e = ease(p);
-                        posAttr.array[k] = scatter[k]*(1-e) + targets[k]*e;
-                        posAttr.array[k+1] = scatter[k+1]*(1-e) + targets[k+1]*e;
-                        posAttr.array[k+2] = scatter[k+2]*(1-e) + targets[k+2]*e;
-                    } else {
-                        posAttr.array[k] *= .97;
-                        posAttr.array[k+1] *= .97;
-                        posAttr.array[k+2] *= .97;
-                    }
-                }
-                posAttr.needsUpdate = true;
-            })
-            .onComplete(res).start();
-    });
-}
-function scatterMessageUp() {
-    return new Promise(res => {
-        const posAttr = messagePoints.geometry.attributes.position;
-        const from = posAttr.array.slice();
-        const state = { p: 0 };
-        new TWEEN.Tween(state).to({ p: 1 }, 900).easing(TWEEN.Easing.Cubic.InOut)
-            .onUpdate(() => {
-                const p = state.p;
-                for (let i = 0; i < 8000; i++) {
-                    const k = i*3;
-                    // 文字向上飘散并淡出（飞向远处）
-                    posAttr.array[k] = from[k] + (Math.random()-.5)*600*p;
-                    posAttr.array[k+1] = from[k+1] + 1400*p;
-                    posAttr.array[k+2] = from[k+2] + (Math.random()-.5)*400*p;
-                }
-                posAttr.needsUpdate = true;
-            })
-            .onComplete(res).start();
-    });
-}
 function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
 function moveCameraToText() {
     return new Promise(res => {
         const sx = camera.position.x, sy = camera.position.y, sz = camera.position.z;
         const tx = controls.target.x, ty = controls.target.y, tz = controls.target.z;
-        const state = { p: 0 };
-        new TWEEN.Tween(state).to({ p: 1 }, 1800).easing(TWEEN.Easing.Cubic.InOut)
-            .onUpdate(() => {
-                const p = state.p;
-                camera.position.set(
-                    sx + (0 - sx) * p,
-                    sy + (0 - sy) * p,
-                    sz + (2800 - sz) * p
-                );
-                controls.target.set(tx + (0 - tx) * p, ty + (0 - ty) * p, tz + (0 - tz) * p);
-                camera.lookAt(controls.target);
-            })
-            .onComplete(() => {
-                camera.lookAt(controls.target);
-                res();
-            })
-            .start();
+        const t0 = performance.now();
+        const dur = 1800;
+        const timer = setInterval(() => {
+            const p = Math.min(1, (performance.now() - t0) / dur);
+            const e = ease(p);
+            camera.position.set(sx + (0 - sx) * e, sy + (0 - sy) * e, sz + (2800 - sz) * e);
+            controls.target.set(tx + (0 - tx) * e, ty + (0 - ty) * e, tz + (0 - tz) * e);
+            camera.lookAt(controls.target);
+            if (p >= 1) { clearInterval(timer); camera.lookAt(controls.target); res(); }
+        }, 16);
     });
 }
-function tweenCamera(props, dur) {
+async function typeMessage(text) {
+    letterInnerEl.textContent = '';
+    for (let i = 0; i < text.length; i++) {
+        letterInnerEl.textContent = text.slice(0, i + 1);
+        await wait(42);
+    }
+}
+function fadeMessageUp() {
     return new Promise(res => {
-        new TWEEN.Tween(camera.position).to(props, dur).easing(TWEEN.Easing.Cubic.InOut).start();
-        new TWEEN.Tween(controls.target).to({ x: 0, y: 0, z: props.z - 1600 }, dur)
-            .easing(TWEEN.Easing.Cubic.InOut).onComplete(res).start();
+        letterInnerEl.style.opacity = '0';
+        letterInnerEl.style.transform = 'translateY(-50px)';
+        setTimeout(res, 500);
     });
 }
 async function playMessage() {
@@ -795,34 +695,35 @@ async function playMessage() {
     const prevAutoRotate = controls.autoRotate;
     const prevEnabled = controls.enabled;
     const prevShape = currentShapeIndex;
-    controls.autoRotate = false;            // 看字时停止自动旋转
-    controls.enabled = false;               // 锁定相机，防止拖动偏移
-    // 照片围绕黑纸一圈 + 黑纸显示
+    controls.autoRotate = false;
+    controls.enabled = false;
     blackPaper.visible = true;
+    letterTextEl.parentElement && letterTextEl.parentElement; // noop
+    letterTextEl.style.display = 'flex';
     transform(targets.message, 1800);
     animateTrunk(false); animateFerris(false);
-    // 平滑移动镜头，正对文字（含朝向修正）
-    await moveCameraToText();
-    await wait(700);
+    await moveCameraToText();      // setInterval 驱动，时间一到直接划过去
+    await wait(400);
     for (let i = 0; i < MESSAGE_TEXT.length; i++) {
-        await gatherMessage(MESSAGE_TEXT[i]);   // 纸上汇聚成字
-        await wait(5200);                        // 停留足够读
+        letterInnerEl.style.opacity = '1';
+        letterInnerEl.style.transform = 'translateY(0)';
+        await typeMessage(MESSAGE_TEXT[i]);   // DOM 打字机，一定显示
+        await wait(5200);
         if (i < MESSAGE_TEXT.length - 1) {
-            await scatterMessageUp();            // 旧字向上飘散
+            await fadeMessageUp();
             await wait(200);
         }
     }
-    // 黑屏恢复
     const blackout = document.getElementById('blackout');
     if (blackout) blackout.classList.add('show');
     await wait(650);
     blackPaper.visible = false;
-    scatterMessageUp();
+    letterTextEl.style.display = 'none';
     await wait(400);
-    transform(targets[SHAPE_NAMES[prevShape]], 1600);  // 照片回到之前形状
+    transform(targets[SHAPE_NAMES[prevShape]], 1600);
     if (blackout) blackout.classList.remove('show');
-    controls.autoRotate = prevAutoRotate;    // 恢复自动旋转
-    controls.enabled = prevEnabled;          // 恢复相机操作
+    controls.autoRotate = prevAutoRotate;
+    controls.enabled = prevEnabled;
     controls.target.set(0, 0, 0);
     controls.update();
     messagePlaying = false;
@@ -894,10 +795,6 @@ function animate() {
     }
     
     controls.update();
-    if (messagePlaying && messagePoints) {
-        messagePoints.material.size = 4.5 + Math.sin(performance.now() * 0.004) * 1.1;
-        messagePoints.material.opacity = 0.85 + Math.sin(performance.now() * 0.003) * 0.15;
-    }
     if (SHAPE_NAMES[ currentShapeIndex ] === 'ferris' && !shapeBusy) {
         const d = 0.005;
         const c = Math.cos(d), s = Math.sin(d);
