@@ -68,30 +68,27 @@ const mainUI = document.getElementById('main-ui');
 let audio = document.getElementById('bgm');
 // 进入网站立即开始播放音乐；受浏览器自动播放策略限制，先以静音模式启动，
 // 用户第一次触摸屏幕时解除静音，声音无缝接上。
-function tryStartMusic() {
-    if (!audio) return;
-    const p = audio.play();
-    if (p && p.catch) p.catch(() => {});
-}
-function unmuteMusic() {
-    if (!audio) return;
+// 移动端浏览器（百度/夸克/Safari 等）几乎都禁止无手势的自动播放，
+// 因此改为：用户第一次与页面交互（点击/触摸）时立即开始播放，兼容性最好。
+let musicStarted = false;
+function startMusic() {
+    if (!audio || musicStarted) return;
+    musicStarted = true;
     audio.muted = false;
-    tryStartMusic();
+    const p = audio.play();
+    if (p && p.catch) p.catch(() => { musicStarted = false; });
 }
-audio.muted = true;
 audio.preload = 'auto';
-tryStartMusic();
-document.addEventListener('pointerdown', unmuteMusic, { once: true, passive: true });
-document.addEventListener('touchstart', unmuteMusic, { once: true, passive: true });
-document.addEventListener('click', unmuteMusic, { once: true, passive: true });
+['pointerdown', 'touchstart', 'touchend', 'click', 'keydown'].forEach(function (ev) {
+    document.addEventListener(ev, startMusic, { passive: true });
+});
 
 btnEnter.addEventListener('click', () => {
     welcomeScreen.style.opacity = '0';
     localStorage.setItem('universeVisited_v14', 'true');
     setTimeout(() => {
         welcomeScreen.style.display = 'none';
-        audio.muted = false;
-        audio.play().catch(e => console.log('Audio autoplay blocked:', e));
+        startMusic();
         if (photosReady) startExperience();
         else {
             const wait = setInterval(() => {
