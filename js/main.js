@@ -46,7 +46,12 @@ function preloadAllPhotos() {
                 const image = new Image();
                 image.decoding = 'async';
                 image.onload = () => {
-                    const done = () => resolve();
+                    const applyImage = () => {
+                        photoElements.forEach(item => {
+                            if (item.index === index) item.element.style.backgroundImage = `url('assets/images/${index}.webp')`;
+                        });
+                    };
+                    const done = () => { applyImage(); resolve(); };
                     if (image.decode) image.decode().catch(() => {}).finally(done);
                     else done();
                 };
@@ -126,7 +131,7 @@ btnEnter.addEventListener('click', () => {
         controlsUI.classList.remove('hidden');
         uiFadeTimeout = setTimeout(() => { controlsUI.classList.add('hidden'); }, 3000);
         startQuotesCycle();
-        showModal('letter-modal');
+        openLetterWhenReady();
     }, 1000);
 });
 
@@ -173,16 +178,28 @@ function startQuotesCycle() {
     }, 6000); 
 }
 
-function showModal(id) { 
+function showModal(id) {
     const modal = document.getElementById(id);
-    modal.style.display = 'block'; 
+    if (!modal) return;
+    modal.style.display = 'block';
     modal.classList.remove('fade-out');
+    void modal.offsetWidth;
     modal.classList.add('fade-in');
-    
-    if(id === 'letter-modal' && !window.typewriterStarted) {
+    if (id === 'letter-modal' && !window.typewriterStarted) {
         startTypewriter();
         window.typewriterStarted = true;
     }
+}
+
+function openLetterWhenReady() {
+    const tryOpen = () => {
+        if (!photosReady) {
+            setTimeout(tryOpen, 80);
+            return;
+        }
+        requestAnimationFrame(() => showModal('letter-modal'));
+    };
+    tryOpen();
 }
 
 function hideModal(id) { 
@@ -200,20 +217,28 @@ const letterText = "谢谢你来爱一个这么糟糕的我。\n\n我的情绪�
 
 let typeIndex = 0;
 let typewriterTimer = null;
+let typewriterFrame = null;
 function startTypewriter() {
     const box = document.getElementById('typewriter-content');
     if (!box) return;
     clearInterval(typewriterTimer);
+    if (typewriterFrame) cancelAnimationFrame(typewriterFrame);
     typeIndex = 0;
     box.classList.remove('done');
     box.textContent = '';
     typewriterTimer = setInterval(() => {
         typeIndex += 1;
-        box.textContent = letterText.slice(0, typeIndex);
-        if (box.parentElement) box.parentElement.scrollTop = box.parentElement.scrollHeight;
+        if (!typewriterFrame) {
+            typewriterFrame = requestAnimationFrame(() => {
+                box.textContent = letterText.slice(0, typeIndex);
+                typewriterFrame = null;
+            });
+        }
         if (typeIndex >= letterText.length) {
             clearInterval(typewriterTimer);
             typewriterTimer = null;
+            if (typewriterFrame) cancelAnimationFrame(typewriterFrame);
+            box.textContent = letterText;
             box.classList.add('done');
         }
     }, 55);
@@ -441,7 +466,7 @@ if (!isFirstTime) {
         
         enterAnimation();
         startQuotesCycle();
-        showModal('letter-modal');
+        openLetterWhenReady();
 
         const audioTip = document.createElement('div');
         audioTip.innerText = "点击屏幕播放我们的回忆原声 ✨";
