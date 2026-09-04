@@ -841,15 +841,48 @@ async function playMessage() {
     transform(targets.message, 1800);
     animateTrunk(false); animateFerris(false);
     await wait(1900);
-    // 文字期间：电影级远景，相机绕照片圈环绕，准心锁定圆心（原点）
+    // 文字期间：电影级运镜——远景推近 → 围绕照片圈正面转一整圈 → 侧景 → 拉远俯瞰
     const msgTourT0 = performance.now();
     const msgTour = setInterval(() => {
         const p = ((performance.now() - msgTourT0) / 24000) % 1;
-        // 站在远处看照片围成的圈：绕圈旋转 + 斜上方俯视 + 轻微呼吸
-        const ang = p * Math.PI * 2;
-        const R = 3200 + Math.sin(p * Math.PI * 6) * 350;
-        const height = 1500 + Math.sin(p * Math.PI * 4) * 300;
-        camera.position.set(Math.cos(ang)*R, Math.sin(ang)*R, height);
+        let x, y, z;
+        if (p < 0.12) {
+            // 远景正面，缓缓推近
+            const q = p / 0.12;
+            z = 4200 - q * 1000;
+            x = 0; y = 0;
+        } else if (p < 0.52) {
+            // 围绕照片圈正面转一整圈（绕 Y 轴），准心锁定圆心
+            const q = (p - 0.12) / 0.4;
+            const ang = q * Math.PI * 2;
+            const r = 3200;
+            x = Math.sin(ang) * r;
+            y = Math.sin(q * Math.PI * 2) * 250;
+            z = Math.cos(ang) * r;
+        } else if (p < 0.72) {
+            // 侧景：拉近侧面，展示照片排列的纵深
+            const q = (p - 0.52) / 0.2;
+            const r = 3200 - q * 900;
+            x = r;
+            y = Math.sin(q * Math.PI) * 220;
+            z = Math.cos(q * Math.PI) * 320;
+        } else if (p < 0.9) {
+            // 拉远 + 斜上方俯瞰（远景收尾）
+            const q = (p - 0.72) / 0.18;
+            const r = 2300 + q * 1500;
+            const ang = q * Math.PI * 0.5;
+            x = Math.sin(ang) * r;
+            y = 500 + q * 900;
+            z = Math.cos(ang) * r;
+        } else {
+            // 回归正面，轻微呼吸
+            const q = (p - 0.9) / 0.1;
+            const r = 3800 + Math.sin(q * Math.PI) * 150;
+            x = Math.sin(q * Math.PI) * 250;
+            y = Math.sin(q * Math.PI * 2) * 200;
+            z = r;
+        }
+        camera.position.set(x, y, z);
         controls.target.set(0, 0, 0);
         camera.lookAt(controls.target);
     }, 16);
