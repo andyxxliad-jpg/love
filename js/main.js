@@ -311,6 +311,7 @@ function startTypewriter() {
     if (typewriterFrame) cancelAnimationFrame(typewriterFrame);
     typeIndex = 0;
     box.classList.remove('done');
+    box.classList.add('typing');
     box.textContent = '';
     const letterBody = document.querySelector('#letter-modal .letter-bg');
     typewriterTimer = setInterval(() => {
@@ -321,9 +322,10 @@ function startTypewriter() {
             clearInterval(typewriterTimer);
             typewriterTimer = null;
             box.textContent = letterText;
+            box.classList.remove('typing');
             box.classList.add('done');
         }
-    }, 30);
+    }, 45);
 }
 
 let camera, sceneWebGL, sceneCSS, rendererWebGL, rendererCSS;
