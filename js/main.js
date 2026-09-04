@@ -459,6 +459,32 @@ let activeBook = null;
 let entranceCancelled = false;
 let entranceRunId = 0;
 
+function bookImage(index) {
+    return new Promise(resolve => {
+        const full = `assets/images/${index}.webp`;
+        const fallback = `assets/images/thumbs/${index}.webp`;
+        const image = new Image();
+        image.decoding = 'async';
+        let finished = false;
+        const done = (url) => {
+            if (finished) return;
+            finished = true;
+            resolve(url);
+        };
+        image.onload = () => {
+            if (image.decode) image.decode().catch(() => {}).finally(() => done(full));
+            else done(full);
+        };
+        image.onerror = () => {
+            const backup = new Image();
+            backup.onload = () => done(fallback);
+            backup.onerror = () => done('');
+            backup.src = fallback;
+        };
+        image.src = full;
+    });
+}
+
 function enterAnimation() {
     cancelBookEntrance();
     TWEEN.removeAll();
@@ -469,135 +495,104 @@ function enterAnimation() {
     const savedCamera = camera.position.clone();
     const savedTarget = controls.target.clone();
     controls.autoRotate = false;
-    controls.enabled = false;
+    controls.enabled = true;
 
     const pageCount = 6;
     const isMobile = window.innerWidth <= 768;
-    const pageWidth = isMobile ? 390 : 560;
-    const pageHeight = isMobile ? 540 : 760;
+    const pageWidth = isMobile ? 430 : 600;
+    const pageHeight = isMobile ? 600 : 820;
+    const pageImages = Array.from({ length: pageCount }, (_, i) => i + 1);
     const book = new THREE.Group();
-    book.position.set(0, 0, -150);
-    book.rotation.set(THREE.MathUtils.degToRad(-8), THREE.MathUtils.degToRad(-8), 0);
-    book.scale.set(.62, .62, .62);
+    book.position.set(0, 0, -260);
+    book.rotation.set(THREE.MathUtils.degToRad(-7), THREE.MathUtils.degToRad(-10), 0);
+    book.scale.set(.58, .58, .58);
     sceneCSS.add(book);
     activeBook = { book, previousAutoRotate, previousEnabled, savedCamera, savedTarget, runId };
 
-    const panel = (className, w, h) => {
-        const el = document.createElement('div');
-        el.className = className;
-        el.style.width = `${w}px`;
-        el.style.height = `${h}px`;
-        return el;
+    const makePanel = (className, width, height) => {
+        const panel = document.createElement('div');
+        panel.className = className;
+        panel.style.width = `${width}px`;
+        panel.style.height = `${height}px`;
+        return panel;
     };
-    const addPanel = (className, w, h, x, y, z) => {
-        const obj = new THREE.CSS3DObject(panel(className, w, h));
-        obj.position.set(x, y, z);
-        book.add(obj);
-        return obj;
-    };
-
-    addPanel('book3d-base book3d-base-left', pageWidth, pageHeight, -pageWidth / 2, 0, -25);
-    addPanel('book3d-base book3d-base-right', pageWidth, pageHeight, pageWidth / 2, 0, -25);
-    addPanel('book3d-spine', 16, pageHeight + 38, 0, 0, 50);
-    addPanel('book3d-cover book3d-cover-left', pageWidth, pageHeight, -pageWidth / 2, 0, 38);
-
-    const rightCoverHinge = new THREE.Object3D();
-    rightCoverHinge.position.set(0, 0, 48);
-    const rightCoverObj = new THREE.CSS3DObject(panel('book3d-cover book3d-cover-right', pageWidth, pageHeight));
-    rightCoverObj.position.set(pageWidth / 2, 0, 0);
-    rightCoverHinge.add(rightCoverObj);
-    book.add(rightCoverHinge);
-
-    const makePage = (index) => {
+    const makePage = (url, index) => {
         const hinge = new THREE.Object3D();
-        hinge.position.set(0, 0, 42 - index * 3);
-        const holder = panel('book3d-paper', pageWidth, pageHeight);
-        holder.style.zIndex = String(60 - index);
-        const front = panel('book3d-face book3d-face-front', pageWidth, pageHeight);
-        const back = panel('book3d-face book3d-face-back', pageWidth, pageHeight);
-        const frontImg = document.createElement('img');
-        const backImg = document.createElement('img');
-        const fullUrl = `assets/images/${index + 1}.webp`;
-        const thumbUrl = `assets/images/thumbs/${index + 1}.webp`;
-        [frontImg, backImg].forEach(img => {
-            img.src = thumbUrl;
-            img.alt = `我们的回忆 ${index + 1}`;
-            img.draggable = false;
-        });
-        front.appendChild(frontImg);
-        back.appendChild(backImg);
-        holder.appendChild(front);
-        holder.appendChild(back);
-        const pageObj = new THREE.CSS3DObject(holder);
-        pageObj.position.set(pageWidth / 2, 0, 0);
-        hinge.add(pageObj);
+        hinge.position.set(0, 0, 34 - index * 2);
+        const paper = makePanel('book3d-paper', pageWidth, pageHeight);
+        const front = makePanel('book3d-paper-face book3d-paper-front', pageWidth, pageHeight);
+        const back = makePanel('book3d-paper-face book3d-paper-back', pageWidth, pageHeight);
+        if (url) {
+            front.style.backgroundImage = `url('${url}')`;
+            back.style.backgroundImage = `url('${url}')`;
+        }
+        paper.appendChild(front);
+        paper.appendChild(back);
+        const page = new THREE.CSS3DObject(paper);
+        page.position.set(pageWidth / 2, 0, 0);
+        hinge.add(page);
         book.add(hinge);
-        return { hinge, holder, frontImg, backImg, fullUrl, thumbUrl };
+        return { hinge, paper };
     };
-    const pages = Array.from({length: pageCount}, (_, i) => makePage(i));
 
-    const loadFull = (item) => new Promise(resolve => {
-        const image = new Image();
-        image.decoding = 'async';
-        let settled = false;
-        const done = (useFull) => {
-            if (settled) return;
-            settled = true;
-            if (useFull) {
-                item.frontImg.src = item.fullUrl;
-                item.backImg.src = item.fullUrl;
-            }
-            resolve();
-        };
-        image.onload = () => {
-            if (image.decode) image.decode().catch(() => {}).finally(() => done(true));
-            else done(true);
-        };
-        image.onerror = () => done(false);
-        image.src = item.fullUrl;
-        setTimeout(() => done(false), 4500);
-    });
+    const baseLeft = new THREE.CSS3DObject(makePanel('book3d-base book3d-base-left', pageWidth, pageHeight));
+    baseLeft.position.set(-pageWidth / 2, 0, -25);
+    book.add(baseLeft);
+    const baseRight = new THREE.CSS3DObject(makePanel('book3d-base book3d-base-right', pageWidth, pageHeight));
+    baseRight.position.set(pageWidth / 2, 0, -25);
+    book.add(baseRight);
+    const spine = new THREE.CSS3DObject(makePanel('book3d-spine', 16, pageHeight + 42));
+    spine.position.set(0, 0, 48);
+    book.add(spine);
+    const leftCover = new THREE.CSS3DObject(makePanel('book3d-cover book3d-cover-left', pageWidth, pageHeight));
+    leftCover.position.set(-pageWidth / 2, 0, 42);
+    book.add(leftCover);
+    const coverHinge = new THREE.Object3D();
+    coverHinge.position.set(0, 0, 52);
+    const rightCover = new THREE.CSS3DObject(makePanel('book3d-cover book3d-cover-right', pageWidth, pageHeight));
+    rightCover.position.set(pageWidth / 2, 0, 0);
+    coverHinge.add(rightCover);
+    book.add(coverHinge);
 
-    Promise.all(pages.map(loadFull)).then(() => {
+    Promise.all(pageImages.map(bookImage)).then(urls => {
         if (entranceCancelled || !activeBook || activeBook.runId !== runId) return;
+        const pages = urls.map((url, index) => makePage(url, index));
+        pages.forEach((page, index) => {
+            page.paper.style.zIndex = String(60 - index);
+            page.hinge.rotation.y = 0;
+        });
         book.visible = true;
-        new TWEEN.Tween(book.scale).to({x: 1, y: 1, z: 1}, 700).easing(TWEEN.Easing.Cubic.Out).start();
-        new TWEEN.Tween(book.rotation).to({x: THREE.MathUtils.degToRad(-3), y: 0, z: 0}, 700).easing(TWEEN.Easing.Cubic.Out).start();
-        new TWEEN.Tween(rightCoverHinge.rotation).to({y: -Math.PI * .88}, 850).delay(500).easing(TWEEN.Easing.Cubic.InOut).start();
-        flipBookPages(pages, 0, book, runId);
+        new TWEEN.Tween(book.scale).to({x: 1, y: 1, z: 1}, 800).easing(TWEEN.Easing.Cubic.Out).start();
+        new TWEEN.Tween(book.rotation).to({x: THREE.MathUtils.degToRad(-3), y: 0, z: 0}, 800).easing(TWEEN.Easing.Cubic.Out).start();
+        new TWEEN.Tween(coverHinge.rotation).to({y: -Math.PI * .9}, 800).delay(600).easing(TWEEN.Easing.Cubic.InOut).start();
+        flipBookPage(pageCount, pages, 0, book, runId, previousAutoRotate);
     });
 }
 
-function flipBookPages(pages, index, book, runId) {
+function flipBookPage(pageCount, pages, index, book, runId, previousAutoRotate) {
     if (entranceCancelled || !activeBook || activeBook.runId !== runId) return;
-    if (index < pages.length) {
-        const item = pages[index];
-        const state = { angle: 0 };
-        new TWEEN.Tween(state)
-            .to({angle: -Math.PI}, 760)
-            .delay(index === 0 ? 600 : 100)
+    if (index < pageCount) {
+        const page = pages[index];
+        new TWEEN.Tween(page.hinge.rotation)
+            .to({y: -Math.PI}, 820)
+            .delay(index === 0 ? 500 : 140)
             .easing(TWEEN.Easing.Cubic.InOut)
             .onUpdate(() => {
-                item.hinge.rotation.y = state.angle;
-                if (state.angle < -Math.PI * .5) item.holder.style.zIndex = String(8 + index);
+                if (page.hinge.rotation.y < -Math.PI * .5) page.paper.style.zIndex = String(8 + index);
             })
-            .onComplete(() => {
-                item.hinge.rotation.y = -Math.PI;
-                flipBookPages(pages, index + 1, book, runId);
-            })
+            .onComplete(() => flipBookPage(pageCount, pages, index + 1, book, runId, previousAutoRotate))
             .start();
         return;
     }
-    // 书页完成后先停留片刻，再推进镜头，最后无条件清理书本。
     setTimeout(() => {
         if (entranceCancelled || !activeBook || activeBook.runId !== runId) return;
+        const state = activeBook;
         new TWEEN.Tween(camera.position).to({x: 0, y: 0, z: 620}, 900).easing(TWEEN.Easing.Cubic.InOut).start();
-        new TWEEN.Tween(book.scale).to({x: 2.25, y: 2.25, z: 2.25}, 900).easing(TWEEN.Easing.Cubic.InOut).start();
+        new TWEEN.Tween(book.scale).to({x: 2.15, y: 2.15, z: 2.15}, 900).easing(TWEEN.Easing.Cubic.InOut).start();
         setTimeout(() => {
             if (!activeBook || activeBook.runId !== runId) return;
-            const state = activeBook;
             finishBookEntrance(state);
-            launchHeartFromBook(state.previousAutoRotate, null);
+            launchHeartFromBook(previousAutoRotate, null);
         }, 1050);
     }, 350);
 }
@@ -605,6 +600,7 @@ function flipBookPages(pages, index, book, runId) {
 function finishBookEntrance(bookState) {
     if (!bookState) return;
     entranceCancelled = true;
+    entranceRunId++;
     TWEEN.removeAll();
     bookState.book.visible = false;
     sceneCSS.remove(bookState.book);
@@ -638,7 +634,6 @@ function launchHeartFromBook(previousAutoRotate, unusedBookStage) {
         object.visible = true;
         object.element.style.width = '90px';
         object.element.style.height = '120px';
-        object.element.style.willChange = 'transform';
         if (side === 0) object.position.set(-distance, (Math.random() - .5) * 2600, (Math.random() - .5) * 1600);
         if (side === 1) object.position.set(distance, (Math.random() - .5) * 2600, (Math.random() - .5) * 1600);
         if (side === 2) object.position.set((Math.random() - .5) * 3600, distance * .55, (Math.random() - .5) * 1600);
@@ -648,18 +643,16 @@ function launchHeartFromBook(previousAutoRotate, unusedBookStage) {
     }
     transform(targets.heart, 2200);
     setTimeout(() => {
-        objects.forEach(object => { object.element.style.willChange = 'auto'; });
         controls.autoRotate = previousAutoRotate;
         controls.enabled = true;
-        document.getElementById('main-ui').style.opacity = '1';
-        document.getElementById('main-ui').style.pointerEvents = 'none';
         controlsUI.classList.remove('hidden');
         startFullPhotoLoading();
-    }, 2600);
+    }, 4800);
 }
 
 function transform( targets, duration ) {
     TWEEN.removeAll();
+    controls.enabled = false;
     for ( let i = 0; i < objects.length; i ++ ) {
         const object = objects[ i ];
         const target = targets[ i ];
@@ -680,6 +673,7 @@ function transform( targets, duration ) {
             .easing( TWEEN.Easing.Exponential.InOut )
             .start();
     }
+    setTimeout(() => { controls.enabled = true; }, duration * 2 + 250);
 }
 
 function onWindowResize() {
