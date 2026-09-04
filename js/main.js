@@ -27,33 +27,33 @@ const welcomeScreen = document.getElementById('welcome-screen');
 const mainUI = document.getElementById('main-ui');
 let audio = document.getElementById('bgm');
 
-// 图片采用渐进式加载，避免首屏同时解码 120 张照片造成动画卡顿。
-// 首屏先使用轻量缩略图，确保进场动画从第一帧就有照片。
-let photoThumbsReady = Promise.resolve();
+// 先加载并解码全部高质量照片，完成后才开始进场动画。
+const imageCache = new Map();
+const photoElements = [];
+const MAX_IMAGE_LOADS = 4;
+let photosLoaded = 0;
+let photosReady = false;
+let weatherReady = false;
+let photoFullReady;
 
-function preloadPhotoThumbnails() {
-    const jobs = [];
-    for (let index = 1; index <= totalUploadedPhotos; index++) {
-        jobs.push(new Promise(resolve => {
-            const image = new Image();
-            image.decoding = 'async';
-            image.onload = () => {
-                if (image.decode) image.decode().catch(() => {}).finally(resolve);
-                else resolve();
-            };
-            image.onerror = resolve;
-            image.src = `assets/images/thumbs/${index}.webp`;
-        }));
-    }
-    photoThumbsReady = Promise.all(jobs);
-    return photoThumbsReady;
+function updatePhotoProgress() {
+    const percent = Math.round((photosLoaded / totalUploadedPhotos) * 100);
+    const bar = document.getElementById('photo-progress-bar');
+    const count = document.getElementById('photo-loading-count');
+    if (bar) bar.style.width = `${percent}%`;
+    if (count) count.innerText = `照片准备中 ${photosLoaded} / ${totalUploadedPhotos}`;
 }
 
-const imageCache = new Map();
-const imageQueue = [];
-const photoElements = [];
-let activeImageLoads = 0;
-const MAX_IMAGE_LOADS = 4;
+function showEnterButtonWhenReady() {
+    btnEnter.style.display = 'inline-block';
+    if (photosReady) {
+        btnEnter.disabled = false;
+        btnEnter.innerText = '去看我给你准备的惊喜 🚀';
+    } else {
+        btnEnter.disabled = true;
+        btnEnter.innerText = '照片准备中… ✨';
+    }
+}
 
 function loadPhotoImage(index) {
     if (imageCache.has(index)) return imageCache.get(index);
@@ -61,11 +61,15 @@ function loadPhotoImage(index) {
         const image = new Image();
         image.decoding = 'async';
         image.onload = () => {
-            const url = `assets/images/${index}.webp`;
-            photoElements.forEach(item => {
-                if (item.index === index) item.element.style.backgroundImage = `url(\"${url}\")`;
-            });
-            resolve(image);
+            const finish = () => {
+                const url = `assets/images/${index}.webp`;
+                photoElements.forEach(item => {
+                    if (item.index === index) item.element.style.backgroundImage = `url(\"${url}\")`;
+                });
+                resolve(image);
+            };
+            if (image.decode) image.decode().catch(() => {}).finally(finish);
+            else finish();
         };
         image.onerror = reject;
         image.src = `assets/images/${index}.webp`;
@@ -74,22 +78,23 @@ function loadPhotoImage(index) {
     return promise;
 }
 
-function runPhotoQueue() {
-    while (activeImageLoads < MAX_IMAGE_LOADS && imageQueue.length) {
-        const index = imageQueue.shift();
-        activeImageLoads++;
-        loadPhotoImage(index).catch(() => {}).finally(() => {
-            activeImageLoads--;
-            runPhotoQueue();
-        });
-    }
-}
-
-function startProgressivePhotoLoading() {
-    for (let index = 1; index <= totalUploadedPhotos; index++) imageQueue.push(index);
-    // 先让入场动画独占首屏资源，再以有限并发补齐全部照片。
-    const start = window.requestAnimationFrame || ((callback) => setTimeout(callback, 16));
-    start(() => setTimeout(runPhotoQueue, 350));
+function preloadAllPhotos() {
+    let nextIndex = 1;
+    const worker = async () => {
+        while (nextIndex <= totalUploadedPhotos) {
+            const index = nextIndex++;
+            try { await loadPhotoImage(index); } catch (error) { console.warn(`照片 ${index} 加载失败`, error); }
+            photosLoaded++;
+            updatePhotoProgress();
+        }
+    };
+    photoFullReady = Promise.all(Array.from({ length: MAX_IMAGE_LOADS }, worker)).then(() => {
+        photosReady = true;
+        const status = document.getElementById('photo-loading-status');
+        if (status) status.innerText = '回忆相册准备完成，可以进入啦 ✨';
+        if (weatherReady) showEnterButtonWhenReady();
+    });
+    return photoFullReady;
 }
 
 btnLocation.addEventListener('click', () => {
@@ -117,40 +122,36 @@ btnLocation.addEventListener('click', () => {
             } catch (err) {
                 weatherText.innerHTML = "网络好像有点小调皮。<br>不过没关系，有我的每一天都是好天气！☀️";
             }
-            btnEnter.style.display = 'inline-block';
+            weatherReady = true;
+            showEnterButtonWhenReady();
         }, (error) => {
             weatherText.innerHTML = "哎呀，没有拿到位置信息呢。<br>没关系，反正你在我心里~ 🌌";
-            btnEnter.style.display = 'inline-block';
+            weatherReady = true;
+            showEnterButtonWhenReady();
         });
     } else {
         weatherText.innerHTML = "设备不支持定位功能呢。<br>直接进来吧！";
-        btnEnter.style.display = 'inline-block';
+        weatherReady = true;
+            showEnterButtonWhenReady();
     }
 });
 
 let experienceStarted = false;
 btnEnter.addEventListener('click', () => {
-    if (experienceStarted) return;
+    if (experienceStarted || !photosReady) return;
     experienceStarted = true;
-    btnEnter.disabled = true;
-    const originalLabel = btnEnter.innerText;
-    btnEnter.innerText = '正在准备照片... ✨';
-    photoThumbsReady.then(() => {
-        btnEnter.innerText = originalLabel;
-        welcomeScreen.style.opacity = '0';
-        localStorage.setItem('universeVisited_v14', 'true');
-        setTimeout(() => {
-            welcomeScreen.style.display = 'none';
-            mainUI.style.opacity = '1';
-            mainUI.style.pointerEvents = 'none';
-            audio.play().catch(e => console.log('Audio autoplay blocked:', e));
-            enterAnimation();
-            startProgressivePhotoLoading();
-            controlsUI.classList.remove('hidden');
-            uiFadeTimeout = setTimeout(() => { controlsUI.classList.add('hidden'); }, 3000);
-            startQuotesCycle();
-        }, 1000);
-    });
+    welcomeScreen.style.opacity = '0';
+    localStorage.setItem('universeVisited_v14', 'true');
+    setTimeout(() => {
+        welcomeScreen.style.display = 'none';
+        mainUI.style.opacity = '1';
+        mainUI.style.pointerEvents = 'none';
+        audio.play().catch(e => console.log('Audio autoplay blocked:', e));
+        enterAnimation();
+        controlsUI.classList.remove('hidden');
+        uiFadeTimeout = setTimeout(() => { controlsUI.classList.add('hidden'); }, 3000);
+        startQuotesCycle();
+    }, 1000);
 });
 
 const startDate = new Date('2026-08-07T00:00:00').getTime();
@@ -269,7 +270,7 @@ const totalUploadedPhotos = 120;
 let particles;
 
 init();
-preloadPhotoThumbnails();
+preloadAllPhotos();
 animate();
 
 function init() {
@@ -519,9 +520,9 @@ if (!isFirstTime) {
         document.getElementById('main-ui').style.opacity = '1';
         document.getElementById('main-ui').style.pointerEvents = 'none';
         
-        photoThumbsReady.then(() => {
+        photoFullReady.then(() => {
+            document.getElementById('main-ui').style.opacity = '1';
             enterAnimation();
-            startProgressivePhotoLoading();
             startQuotesCycle();
         });
 
