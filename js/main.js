@@ -236,15 +236,9 @@ function startQuotesCycle() {
     quotesCycleStarted = true;
     quotesBox.innerText = hotQuotes[quoteIndex];
     setInterval(() => {
-        quotesBox.classList.add('quotes-fade-out');
-        quotesBox.classList.remove('quotes-fade-in');
-        setTimeout(() => {
-            quoteIndex = (quoteIndex + 1) % hotQuotes.length;
-            quotesBox.innerText = hotQuotes[quoteIndex];
-            quotesBox.classList.remove('quotes-fade-out');
-            quotesBox.classList.add('quotes-fade-in');
-        }, 800); 
-    }, 6000); 
+        quoteIndex = (quoteIndex + 1) % hotQuotes.length;
+        quotesBox.innerText = hotQuotes[quoteIndex];
+    }, 6000);
 }
 
 function showModal(id) {
@@ -547,19 +541,30 @@ function enterAnimation() {
             .delay(delay)
             .start();
     }
-    // 动画结束后分四批替换高清原图，避免一次性替换造成卡顿。
-    const swapDelay = duration + 1000;
-    const batchSize = Math.ceil(objects.length / 4);
-    for (let batch = 0; batch < 4; batch++) {
+    // 动画结束后先清空卡片，再每 280ms 浮现一张高清原图。
+    const revealDelay = duration + 900;
+    setTimeout(() => {
+        for (let i = 0; i < objects.length; i++) {
+            objects[i].element.style.backgroundImage = 'none';
+            if (objects[i].userData.backElement) objects[i].userData.backElement.style.backgroundImage = 'none';
+        }
+    }, revealDelay);
+    for (let i = 0; i < objects.length; i++) {
         setTimeout(() => {
-            const start = batch * batchSize;
-            const end = Math.min(objects.length, start + batchSize);
-            for (let i = start; i < end; i++) {
-                const imgIndex = (i % totalUploadedPhotos) + 1;
-                objects[i].element.style.backgroundImage = `url('assets/images/${imgIndex}.webp')`;
-                if (objects[i].userData.backElement) objects[i].userData.backElement.style.backgroundImage = `url('assets/images/${imgIndex}.webp')`;
-            }
-        }, swapDelay + batch * 700);
+            const imgIndex = (i % totalUploadedPhotos) + 1;
+            const url = `assets/images/${imgIndex}.webp`;
+            const image = new Image();
+            const apply = () => {
+                objects[i].element.style.backgroundImage = `url('${url}')`;
+                if (objects[i].userData.backElement) objects[i].userData.backElement.style.backgroundImage = `url('${url}')`;
+            };
+            image.onload = () => {
+                if (image.decode) image.decode().then(apply).catch(apply);
+                else apply();
+            };
+            image.onerror = apply;
+            image.src = url;
+        }, revealDelay + i * 280);
     }
 }
 
