@@ -224,7 +224,7 @@ function startTypewriter() {
 let camera, sceneWebGL, sceneCSS, rendererWebGL, rendererCSS;
 let controls;
 const objects = [];
-const targets = { heart: [], tree: [], ferris: [], galaxy: [], rose: [], firework: [], infinity: [], vortex: [] };
+const targets = { heart: [], tree: [], ferris: [], galaxy: [], rose: [], firework: [], infinity: [], vortex: [], message: [] };
 
 // 关键修改点：设定为 120 张
 const photoCount = 120; 
@@ -237,6 +237,7 @@ const isFirstTime = !localStorage.getItem('universeVisited_v14');
 const SHAPE_NAMES = [ 'heart', 'tree', 'ferris', 'galaxy', 'rose', 'firework', 'infinity', 'vortex' ];
 let messagePoints = null;
 let messagePlaying = false;
+let blackPaper = null;
 const MESSAGE_TEXT = [
   '其实我不太会表达自己，也是一个特别怕麻烦的人。可是你的出现让我觉得我也是生动的人。谢谢你给了我一个很好的温度，让我感受到了爱和温暖。想起你，我就觉得有了依靠，做事情都多了一份底气。难怪大家都说，被爱好似有靠山。',
   '其实，我真的远比你想象中更需要你，更在意你。谢谢你总能照顾到我的情绪，在意我说过的话。相处这么久也让我很开心，因为有你在。谢谢你靠近我、温暖我、了解我、陪伴我。',
@@ -385,20 +386,32 @@ function init() {
         blending: THREE.AdditiveBlending, depthWrite: false }));
     sceneWebGL.add(ferrisPoints);
 
-    // 小作文粒子（放在远处空旷平面 z=8000）
+    // 小作文粒子（原地，在黑色纸前方）
     const msgCount = 8000;
     const msgGeo = new THREE.BufferGeometry();
     const msgPos = new Float32Array(msgCount * 3);
     for (let i = 0; i < msgCount; i++) {
         msgPos[i*3] = (Math.random() - .5) * 6000;
         msgPos[i*3+1] = (Math.random() - .5) * 5000;
-        msgPos[i*3+2] = 7000 + (Math.random() - .5) * 4000;
+        msgPos[i*3+2] = (Math.random() - .5) * 4000;
     }
     msgGeo.setAttribute('position', new THREE.BufferAttribute(msgPos, 3));
     messagePoints = new THREE.Points(msgGeo, new THREE.PointsMaterial({
         size: 4.5, map: texture, transparent: true, opacity: 1,
         blending: THREE.AdditiveBlending, depthWrite: false }));
     sceneWebGL.add(messagePoints);
+
+    // 黑色纸（CSS3D，圆心位置，小作文打字背景）
+    const blackPaperEl = document.createElement('div');
+    blackPaperEl.style.width = '720px';
+    blackPaperEl.style.height = '960px';
+    blackPaperEl.style.background = '#000';
+    blackPaperEl.style.borderRadius = '10px';
+    blackPaperEl.style.boxShadow = '0 0 60px rgba(0,0,0,.8)';
+    blackPaper = new THREE.CSS3DObject(blackPaperEl);
+    blackPaper.position.set(0, 0, -20);
+    blackPaper.visible = false;
+    sceneCSS.add(blackPaper);
 
     rendererWebGL = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     rendererWebGL.setSize( window.innerWidth, window.innerHeight );
@@ -467,6 +480,15 @@ function init() {
         object.position.set( Math.cos( a ) * 950, Math.sin( a ) * 950, 0 );
         object.lookAt( 0, 0, 0 );
         targets.ferris.push( object );
+    }
+
+    // 小作文：照片围绕中心一圈（黑色纸在圆心）
+    for ( let i = 0; i < objects.length; i ++ ) {
+        const a = ( i / objects.length ) * Math.PI * 2;
+        const object = new THREE.Object3D();
+        object.position.set( Math.cos( a ) * 1050, Math.sin( a ) * 1050, 0 );
+        object.lookAt( 0, 0, 0 );
+        targets.message.push( object );
     }
 
     // 玫瑰：五叶玫瑰曲线，照片沿花瓣
@@ -671,9 +693,9 @@ function buildMessageParticles(text) {
     for (let y = 0; y < CH; y += 2) for (let x = 0; x < CW; x += 2) {
         const i = (y*CW+x)*4;
         if (data[i] > 150 && data[i+1] > 150 && data[i+2] > 150) {
-            const px = (x/CW - .5) * 820;
-            const py = (.5 - y/CH) * 1180;
-            pts.push(px, py, 8000 + (Math.random()-.5)*2);
+            const px = (x/CW - .5) * 700;
+            const py = (.5 - y/CH) * 900;
+            pts.push(px, py, 25 + (Math.random()-.5)*2);
         }
     }
     return pts;
@@ -682,8 +704,8 @@ function messageScatter() {
     const arr = [];
     for (let i = 0; i < 8000; i++) {
         const a = Math.random() * Math.PI * 2;
-        const r = 1500 + Math.random() * 3000;
-        arr.push(Math.cos(a)*r, Math.sin(a)*r, 8000 + (Math.random()-.5)*5000);
+        const r = 1200 + Math.random() * 2400;
+        arr.push(Math.cos(a)*r, Math.sin(a)*r, (Math.random()-.5)*3500);
     }
     return arr;
 }
@@ -715,20 +737,20 @@ function gatherMessage(text) {
             .onComplete(res).start();
     });
 }
-function scatterMessage() {
+function scatterMessageUp() {
     return new Promise(res => {
-        const scatter = messageScatter();
         const posAttr = messagePoints.geometry.attributes.position;
         const from = posAttr.array.slice();
         const state = { p: 0 };
-        new TWEEN.Tween(state).to({ p: 1 }, 800).easing(TWEEN.Easing.Cubic.InOut)
+        new TWEEN.Tween(state).to({ p: 1 }, 900).easing(TWEEN.Easing.Cubic.InOut)
             .onUpdate(() => {
                 const p = state.p;
                 for (let i = 0; i < 8000; i++) {
                     const k = i*3;
-                    posAttr.array[k] = from[k]*(1-p) + scatter[k]*p;
-                    posAttr.array[k+1] = from[k+1]*(1-p) + scatter[k+1]*p;
-                    posAttr.array[k+2] = from[k+2]*(1-p) + scatter[k+2]*p;
+                    // 文字向上飘散并淡出（飞向远处）
+                    posAttr.array[k] = from[k] + (Math.random()-.5)*600*p;
+                    posAttr.array[k+1] = from[k+1] + 1400*p;
+                    posAttr.array[k+2] = from[k+2] + (Math.random()-.5)*400*p;
                 }
                 posAttr.needsUpdate = true;
             })
@@ -745,20 +767,32 @@ function tweenCamera(props, dur) {
 }
 async function playMessage() {
     messagePlaying = true;
-    // 镜头移到空旷处
-    await tweenCamera({ x: 0, y: 0, z: 9600 }, 2200);
-    for (const seg of MESSAGE_TEXT) {
-        await gatherMessage(seg);
-        await wait(3600);
-        await scatterMessage();
-        await wait(300);
+    const prevAutoRotate = controls.autoRotate;
+    const prevShape = currentShapeIndex;
+    controls.autoRotate = false;            // 看字时停止自动旋转
+    // 照片围绕黑纸一圈 + 黑纸显示
+    blackPaper.visible = true;
+    transform(targets.message, 1800);
+    animateTrunk(false); animateFerris(false);
+    await wait(2000);
+    for (let i = 0; i < MESSAGE_TEXT.length; i++) {
+        await gatherMessage(MESSAGE_TEXT[i]);   // 纸上汇聚成字
+        await wait(5200);                        // 停留足够读
+        if (i < MESSAGE_TEXT.length - 1) {
+            await scatterMessageUp();            // 旧字向上飘散
+            await wait(200);
+        }
     }
     // 黑屏恢复
     const blackout = document.getElementById('blackout');
     if (blackout) blackout.classList.add('show');
     await wait(650);
-    await tweenCamera({ x: 0, y: 0, z: 2800 }, 1500);
+    blackPaper.visible = false;
+    scatterMessageUp();
+    await wait(400);
+    transform(targets[SHAPE_NAMES[prevShape]], 1600);  // 照片回到之前形状
     if (blackout) blackout.classList.remove('show');
+    controls.autoRotate = prevAutoRotate;    // 恢复自动旋转
     messagePlaying = false;
 }
 function switchShape() {
