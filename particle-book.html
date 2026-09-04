@@ -8,7 +8,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
 <script src="https://unpkg.com/three@0.128.0/examples/js/renderers/CSS3DRenderer.js"></script>
 <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <style>
@@ -34,11 +33,18 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #05020a; c
 .bar { height: 7px; margin: 18px 0 8px; border-radius: 8px; background: rgba(255,255,255,.15); overflow: hidden; }
 .bar i { display: block; width: 0; height: 100%; background: linear-gradient(90deg,#ffc0ce,#ff6b8b); box-shadow: 0 0 14px #ff8ca3; border-radius: inherit; transition: width .25s; }
 .load-count { font-size: 12px; color: #c9b6c8; }
-.element { width: 90px; height: 120px; box-shadow: 0 0 15px rgba(255,182,193,.4);
-  border: 2px solid rgba(255,255,255,.7); border-radius: 8px; cursor: pointer;
-  background-size: cover; background-position: center; background-color: rgba(255,140,163,.1);
-  user-select: none; -webkit-user-select: none; -webkit-user-drag: none; -webkit-touch-callout: none;
-  will-change: transform; backface-visibility: visible; -webkit-backface-visibility: visible; }
+/* 书本各部件 */
+.book-paper { position: relative; background: #f6f1e6; border-radius: 6px 14px 14px 6px;
+  box-shadow: inset 0 0 30px rgba(130,105,80,.25), 0 0 20px rgba(0,0,0,.5); }
+.book-paper.right { border-radius: 14px 6px 6px 14px; }
+.book-spine { position: relative; background: linear-gradient(90deg,#4d1d2d,#8a4a5e,#4d1d2d); border-radius: 6px; }
+.book-cover-back { position: relative; background: #2b1220; border: 2px solid rgba(255,160,200,.35); border-radius: 16px; }
+.book-photo { position: relative; border-radius: 8px; overflow: hidden; cursor: pointer;
+  border: 3px solid rgba(255,255,255,.85);
+  box-shadow: 0 10px 30px rgba(0,0,0,.65), 0 0 24px rgba(255,140,180,.5);
+  background-size: cover; background-position: center; background-color: #241625;
+  will-change: transform; backface-visibility: visible; -webkit-backface-visibility: visible;
+  user-select: none; -webkit-user-select: none; -webkit-user-drag: none; }
 #photo-modal { display: none; position: fixed; z-index: 50; inset: 0; background: rgba(0,0,0,.85); align-items: center; justify-content: center; }
 #photo-modal.show { display: flex; }
 #photo-modal img { max-width: 88vw; max-height: 80vh; border-radius: 12px; border: 3px solid rgba(255,182,193,.8); box-shadow: 0 0 30px rgba(0,0,0,.9); }
@@ -49,15 +55,15 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #05020a; c
 <div id="css"></div>
 <div id="hud">
   <div id="title">andy ♥ 陶陶<span id="subtitle"><br>OUR MEMORY BOOK</span></div>
-  <div id="page-ind">第 1 / 5 页 · 爱心</div>
-  <div id="hint">点击屏幕左右两侧翻页 · 拖动旋转照片 · 点击照片放大</div>
+  <div id="page-ind">第 1 / 5 页</div>
+  <div id="hint">点击屏幕左右两侧翻页 · 拖动旋转书本 · 点击照片放大</div>
 </div>
 <div id="loading">
   <div class="load-box">
     <div class="load-title">Preparing our memories</div>
     <div class="load-text" id="status">正在准备照片…</div>
     <div class="bar"><i id="progress"></i></div>
-    <div class="load-count" id="count">照片准备中 0 / 120</div>
+    <div class="load-count" id="count">照片准备中 0 / 10</div>
   </div>
 </div>
 <div id="photo-modal"><img id="photo-large" src="" alt=""></div>
@@ -68,17 +74,17 @@ window.onerror = function(msg, src, line) {
 };
 (() => {
 'use strict';
-const TOTAL_PHOTOS = 120;
-const PAGE_NAMES = ['爱心', '球形', '螺旋', '网格', '圆环'];
-let pageIndex = 0;
+const PAGE_W = 330, PAGE_H = 440;   // 单页纸面尺寸
+const TOTAL_PAGES = 5;              // 5 页 = 10 张照片
+let pageIndex = 0;                  // 0..4
 let busy = false;
 
-let camera, sceneWebGL, sceneCSS, rendererWebGL, rendererCSS, controls, particles;
-const objects = [];
-const targets = { heart: [], sphere: [], helix: [], grid: [], circle: [] };
+let sceneWebGL, sceneCSS, camera, rendererWebGL, rendererCSS, controls, particles;
+let bookGroup, leftPivot, rightPivot, leftPhoto, rightPhoto, leftPhotoBack, rightPhotoBack;
 
 const $ = id => document.getElementById(id);
 const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const ease = t => t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2;
 const imgCache = new Map();
 function getImage(index) {
   const url = `assets/images/${index}.webp`;
@@ -93,15 +99,30 @@ function getImage(index) {
   return p;
 }
 
-function init() {
-  camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 1, 10000);
-  camera.position.z = 2800;
+function makeDiv(className, w, h) {
+  const d = document.createElement('div');
+  d.className = className;
+  d.style.width = w + 'px';
+  d.style.height = h + 'px';
+  return d;
+}
+function cssObject(el, x, y, z) {
+  const o = new THREE.CSS3DObject(el);
+  o.position.set(x, y, z);
+  return o;
+}
 
+function init() {
+  camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 1, 12000);
+  camera.position.set(0, 140, 2100);
+  camera.lookAt(0, 0, 0);
+
+  // 星空
   sceneWebGL = new THREE.Scene();
-  const particleCount = window.innerWidth <= 768 ? 1200 : 2000;
+  const n = innerWidth <= 768 ? 1200 : 2000;
   const geo = new THREE.BufferGeometry();
-  const pos = new Float32Array(particleCount*3);
-  for (let i = 0; i < particleCount*3; i++) pos[i] = (Math.random()-.5)*5000;
+  const pos = new Float32Array(n*3);
+  for (let i = 0; i < n*3; i++) pos[i] = (Math.random()-.5)*5000;
   geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
   const cv = document.createElement('canvas'); cv.width = 64; cv.height = 64;
   const c2 = cv.getContext('2d');
@@ -110,86 +131,55 @@ function init() {
   g.addColorStop(.25,'rgba(255,182,193,1)');
   g.addColorStop(1,'rgba(0,0,0,0)');
   c2.fillStyle = g; c2.fillRect(0,0,64,64);
-  const tex = new THREE.CanvasTexture(cv);
   particles = new THREE.Points(geo, new THREE.PointsMaterial({
-    size: 45, map: tex, transparent: true, opacity: .95,
+    size: 40, map: new THREE.CanvasTexture(cv), transparent: true, opacity: .95,
     blending: THREE.AdditiveBlending, depthWrite: false }));
   sceneWebGL.add(particles);
   rendererWebGL = new THREE.WebGLRenderer({ alpha: true, antialias: window.devicePixelRatio < 2 });
   rendererWebGL.setSize(innerWidth, innerHeight);
   $('webgl').appendChild(rendererWebGL.domElement);
 
+  // 书本（CSS3D）
   sceneCSS = new THREE.Scene();
-  for (let i = 0; i < TOTAL_PHOTOS; i++) {
-    const el = document.createElement('div');
-    el.className = 'element';
-    const imgIndex = i + 1;
-    el.style.backgroundImage = `url('assets/images/${imgIndex}.webp')`;
-    el.addEventListener('pointerup', (e) => {
-      const large = $('photo-large');
-      large.src = `assets/images/${imgIndex}.webp`;
-      $('photo-modal').classList.add('show');
-    });
-    const obj = new THREE.CSS3DObject(el);
-    sceneCSS.add(obj);
-    objects.push(obj);
-    // 双面：背面同样照片，旋转时不留白
-    const backEl = document.createElement('div');
-    backEl.className = 'element';
-    backEl.style.backgroundImage = `url('assets/images/${imgIndex}.webp')`;
-    const back = new THREE.CSS3DObject(backEl);
-    back.rotation.y = Math.PI;
-    obj.add(back);
-  }
+  bookGroup = new THREE.Group();
+  bookGroup.rotation.x = -0.12;
+  sceneCSS.add(bookGroup);
 
-  // 爱心
-  const scale = 45;
-  for (let i = 0; i < objects.length; i++) {
-    const t = (i/objects.length)*Math.PI*2;
-    const x = 16*Math.pow(Math.sin(t),3)*scale;
-    const y = (13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t))*scale;
-    const o = new THREE.Object3D();
-    o.position.set(x, y+150, (Math.random()-.5)*400);
-    targets.heart.push(o);
-  }
-  // 球形
-  const v = new THREE.Vector3();
-  for (let i = 0, l = objects.length; i < l; i++) {
-    const phi = Math.acos(-1+(2*i)/l);
-    const theta = Math.sqrt(l*Math.PI)*phi;
-    const o = new THREE.Object3D();
-    o.position.setFromSphericalCoords(900, phi, theta);
-    v.copy(o.position).multiplyScalar(2);
-    o.lookAt(v);
-    targets.sphere.push(o);
-  }
-  // 螺旋
-  for (let i = 0, l = objects.length; i < l; i++) {
-    const theta = i*0.25 + Math.PI;
-    const y = -(i*15) + 900;
-    const o = new THREE.Object3D();
-    o.position.setFromCylindricalCoords(900, theta, y);
-    v.set(o.position.x*2, o.position.y, o.position.z*2);
-    o.lookAt(v);
-    targets.helix.push(o);
-  }
-  // 网格
-  for (let i = 0; i < objects.length; i++) {
-    const o = new THREE.Object3D();
-    o.position.x = ((i%6)*250) - 600;
-    o.position.y = (-(Math.floor(i/6)%5)*250) + 500;
-    o.position.z = (Math.floor(i/30))*500 - 1000;
-    targets.grid.push(o);
-  }
-  // 圆环（双层交错的环）
-  for (let i = 0; i < objects.length; i++) {
-    const o = new THREE.Object3D();
-    const ring = i % 2;
-    const t = (i/objects.length)*Math.PI*2;
-    const r = ring ? 1050 : 780;
-    o.position.set(Math.cos(t)*r, Math.sin(t)*r*0.9, ring ? 220 : -220);
-    targets.circle.push(o);
-  }
+  // 书皮底板（略大，V 形张开感）
+  const coverL = cssObject(makeDiv('book-cover-back', PAGE_W+40, PAGE_H+40), -PAGE_W/2-22, -6, -26);
+  const coverR = cssObject(makeDiv('book-cover-back', PAGE_W+40, PAGE_H+40), PAGE_W/2+22, -6, -26);
+  coverL.rotation.y = 0.09;
+  coverR.rotation.y = -0.09;
+  bookGroup.add(coverL, coverR);
+
+  // 左右纸页（挂在书脊转轴上）
+  leftPivot = new THREE.Group();
+  rightPivot = new THREE.Group();
+  leftPivot.rotation.order = 'YXZ';
+  rightPivot.rotation.order = 'YXZ';
+  const paperL = cssObject(makeDiv('book-paper', PAGE_W, PAGE_H), -PAGE_W/2, 0, 0);
+  const paperR = cssObject(makeDiv('book-paper right', PAGE_W, PAGE_H), PAGE_W/2, 0, 0);
+  leftPivot.add(paperL);
+  rightPivot.add(paperR);
+  bookGroup.add(leftPivot, rightPivot);
+
+  // 照片卡片（立体：正面 + 背面，浮在纸面上方一点，随视角呈现 3D 透视）
+  const PH_W = PAGE_W - 56, PH_H = PAGE_H - 76;
+  leftPhoto = cssObject(makeDiv('book-photo', PH_W, PH_H), -PAGE_W/2, 4, 14);
+  leftPhotoBack = cssObject(makeDiv('book-photo', PH_W, PH_H), -PAGE_W/2, 4, 14);
+  leftPhotoBack.rotation.y = Math.PI;
+  leftPivot.add(leftPhoto);
+  leftPivot.add(leftPhotoBack);
+
+  rightPhoto = cssObject(makeDiv('book-photo', PH_W, PH_H), PAGE_W/2, 4, 14);
+  rightPhotoBack = cssObject(makeDiv('book-photo', PH_W, PH_H), PAGE_W/2, 4, 14);
+  rightPhotoBack.rotation.y = Math.PI;
+  rightPivot.add(rightPhoto);
+  rightPivot.add(rightPhotoBack);
+
+  // 书脊
+  const spine = cssObject(makeDiv('book-spine', 22, PAGE_H + 14), 0, 0, 4);
+  bookGroup.add(spine);
 
   rendererCSS = new THREE.CSS3DRenderer();
   rendererCSS.setSize(innerWidth, innerHeight);
@@ -198,58 +188,96 @@ function init() {
   $('css').appendChild(rendererCSS.domElement);
 
   controls = new THREE.OrbitControls(camera, rendererCSS.domElement);
-  controls.minDistance = 500;
-  controls.maxDistance = 8000;
+  controls.minDistance = 700;
+  controls.maxDistance = 6000;
   controls.enablePan = true;
   controls.enableZoom = true;
   controls.enableDamping = true;
-  controls.dampingFactor = .05;
-  controls.autoRotate = true;
-  controls.autoRotateSpeed = .8;
+  controls.dampingFactor = .06;
+  controls.autoRotate = false;
 
   window.addEventListener('resize', () => {
     camera.aspect = innerWidth/innerHeight;
     camera.updateProjectionMatrix();
     rendererWebGL.setSize(innerWidth, innerHeight);
     rendererCSS.setSize(innerWidth, innerHeight);
+    fitBook();
   });
-
-  // 初始显示爱心（所有照片就位）
-  for (let i = 0; i < objects.length; i++) {
-    objects[i].position.copy(targets.heart[i].position);
-    objects[i].rotation.copy(targets.heart[i].rotation);
-  }
+  fitBook();
   animate();
 }
-
-function transform(targetList, duration) {
-  TWEEN.removeAll();
-  for (let i = 0; i < objects.length; i++) {
-    const obj = objects[i], t = targetList[i];
-    new TWEEN.Tween(obj.position)
-      .to({ x: t.position.x, y: t.position.y, z: t.position.z }, Math.random()*duration + duration)
-      .easing(TWEEN.Easing.Exponential.InOut).start();
-    new TWEEN.Tween(obj.rotation)
-      .to({ x: t.rotation.x, y: t.rotation.y, z: t.rotation.z }, Math.random()*duration + duration)
-      .easing(TWEEN.Easing.Exponential.InOut).start();
-  }
+function fitBook() {
+  const fov = camera.fov*Math.PI/180;
+  const dist = camera.position.length();
+  const worldH = 2*dist*Math.tan(fov/2);
+  const worldW = worldH * camera.aspect;
+  const s = Math.min(worldW/(PAGE_W*2+120), worldH/(PAGE_H+160)) * 0.94;
+  bookGroup.scale.set(s, s, s);
 }
 
-function goToPage(newIndex) {
+function setPhoto(el, back, index) {
+  const url = `assets/images/${index}.webp`;
+  el.element.style.backgroundImage = `url('${url}')`;
+  back.element.style.backgroundImage = `url('${url}')`;
+  el.element.dataset.photo = index;
+  back.element.dataset.photo = index;
+}
+
+function animateValue(duration, onUpdate, onDone) {
+  const t0 = performance.now();
+  const timer = setInterval(() => {
+    const p = clamp((performance.now() - t0)/duration, 0, 1);
+    onUpdate(ease(p));
+    if (p >= 1) {
+      clearInterval(timer);
+      if (onDone) onDone();
+    }
+  }, 16);
+}
+async function goToPage(newIndex) {
   if (busy) return;
-  newIndex = clamp(newIndex, 0, PAGE_NAMES.length-1);
+  newIndex = clamp(newIndex, 0, TOTAL_PAGES-1);
   if (newIndex === pageIndex) return;
   busy = true;
+  const safety = setTimeout(() => {
+    busy = false;
+    leftPivot.rotation.y = 0; rightPivot.rotation.y = 0;
+  }, 2500);
+  const forward = newIndex > pageIndex;
+  const leftNo = newIndex*2+1, rightNo = newIndex*2+2;
+  await Promise.all([getImage(leftNo), getImage(rightNo)]);
+  // 翻页动画：右页带着新照片从右往左翻，或左页带着新照片从左往右翻
+  if (forward) {
+    setPhoto(rightPhoto, rightPhotoBack, rightNo);
+    let swapped = false;
+    await new Promise(res => animateValue(650, p => {
+      rightPivot.rotation.y = -Math.PI*p;
+      if (p >= .5 && !swapped) {
+        swapped = true;
+        setPhoto(leftPhoto, leftPhotoBack, leftNo);
+      }
+    }, res));
+    rightPivot.rotation.y = 0;
+  } else {
+    setPhoto(leftPhoto, leftPhotoBack, leftNo);
+    let swapped = false;
+    await new Promise(res => animateValue(650, p => {
+      leftPivot.rotation.y = Math.PI*p;
+      if (p >= .5 && !swapped) {
+        swapped = true;
+        setPhoto(rightPhoto, rightPhotoBack, rightNo);
+      }
+    }, res));
+    leftPivot.rotation.y = 0;
+  }
+  clearTimeout(safety);
   pageIndex = newIndex;
-  $('page-ind').textContent = `第 ${newIndex+1} / ${PAGE_NAMES.length} 页 · ${PAGE_NAMES[newIndex]}`;
-  const list = [targets.heart, targets.sphere, targets.helix, targets.grid, targets.circle][newIndex];
-  transform(list, 1200);
-  setTimeout(() => { busy = false; }, 2400);
+  $('page-ind').textContent = `第 ${newIndex+1} / ${TOTAL_PAGES} 页`;
+  busy = false;
 }
 
 function animate() {
   requestAnimationFrame(animate);
-  TWEEN.update();
   if (particles) {
     particles.rotation.y += .0008;
     particles.rotation.x += .0004;
@@ -259,31 +287,28 @@ function animate() {
   rendererCSS.render(sceneCSS, camera);
 }
 
-async function preloadAllPhotos() {
-  const loaded = new Array(TOTAL_PHOTOS+1).fill(false);
-  let done = 0, cursor = 1;
-  const CONCURRENCY = 8;
-  const finish = (index) => {
-    if (index >= 1 && index <= TOTAL_PHOTOS && !loaded[index]) {
-      loaded[index] = true; done++;
-      $('progress').style.width = Math.round(done/TOTAL_PHOTOS*100) + '%';
-      $('count').textContent = `照片准备中 ${done} / ${TOTAL_PHOTOS}`;
-    }
-    if (done >= TOTAL_PHOTOS) {
-      $('status').textContent = '照片准备完成';
-      setTimeout(() => $('loading').classList.add('hidden'), 400);
-    }
-  };
-  const loadNext = () => {
-    if (cursor > TOTAL_PHOTOS) return;
-    const index = cursor++;
-    getImage(index).then(() => { finish(index); loadNext(); });
-  };
-  for (let i = 0; i < CONCURRENCY; i++) loadNext();
+async function preloadPhotos() {
+  const TOTAL = 10;
+  let done = 0;
+  const jobs = [];
+  for (let i = 1; i <= TOTAL; i++) {
+    jobs.push(getImage(i).then(() => {
+      done++;
+      $('progress').style.width = Math.round(done/TOTAL*100) + '%';
+      $('count').textContent = `照片准备中 ${done} / ${TOTAL}`;
+      if (done >= TOTAL) {
+        $('status').textContent = '照片准备完成';
+        setTimeout(() => $('loading').classList.add('hidden'), 400);
+      }
+    }));
+  }
+  await Promise.all(jobs);
 }
 
 init();
-preloadAllPhotos();
+preloadPhotos();
+setPhoto(leftPhoto, leftPhotoBack, 1);
+setPhoto(rightPhoto, rightPhotoBack, 2);
 
 window.addEventListener('pointerdown', (e) => {
   if (e.target && e.target.closest && e.target.closest('#loading')) return;
@@ -291,6 +316,13 @@ window.addEventListener('pointerdown', (e) => {
   if (busy) return;
   if (e.clientX > innerWidth*0.55) goToPage(pageIndex+1);
   else if (e.clientX < innerWidth*0.45) goToPage(pageIndex-1);
+});
+document.addEventListener('pointerup', (e) => {
+  const el = e.target.closest && e.target.closest('.book-photo');
+  if (el && el.dataset.photo) {
+    $('photo-large').src = `assets/images/${el.dataset.photo}.webp`;
+    $('photo-modal').classList.add('show');
+  }
 });
 $('photo-modal').addEventListener('click', () => $('photo-modal').classList.remove('show'));
 })();
