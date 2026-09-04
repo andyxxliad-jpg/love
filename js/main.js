@@ -461,39 +461,39 @@ function enterAnimation() {
     const entranceCount = Math.min(50, objects.length);
     const totalDuration = 6000;
     const isMobile = window.innerWidth <= 768;
-    const spacing = isMobile ? 245 : 340;
-    const cardWidth = isMobile ? '190px' : '260px';
-    const cardHeight = isMobile ? '255px' : '345px';
-    const startX = isMobile ? window.innerWidth * 0.95 : window.innerWidth * 0.8;
-    const endX = isMobile ? -window.innerWidth * 0.95 : -window.innerWidth * 0.8;
-    const stripLength = (entranceCount - 1) * spacing;
-    const travelDistance = stripLength + startX - endX;
+
+    // 以屏幕高度计算卡片尺寸：中央照片约占屏幕高度 2/3，但不会铺满屏幕。
+    const worldHeight = camera.position.z * 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    const worldPerPixel = worldHeight / window.innerHeight;
+    const cardHeight = window.innerHeight * 0.64 * worldPerPixel;
+    const cardWidth = cardHeight * 0.72;
+    const spacing = cardWidth * (isMobile ? 0.66 : 0.72);
+    const initialCenterIndex = 1;
+    const travelDistance = (entranceCount - 1 - initialCenterIndex) * spacing;
     const state = { progress: 0 };
 
-    // 入场阶段使用 50 张大图组成连续胶片带，全部从右向左经过屏幕中央。
+    // 50 张照片是一整条连续胶片带，第二张初始位于屏幕正中央。
     for (let i = 0; i < objects.length; i++) {
         const object = objects[i];
         object.visible = i < entranceCount;
-        object.element.style.width = cardWidth;
-        object.element.style.height = cardHeight;
+        object.element.style.width = `${cardWidth}px`;
+        object.element.style.height = `${cardHeight}px`;
+        object.element.style.willChange = 'transform';
         object.rotation.set(0, 0, 0);
-        object.scale.set(1, 1, 1);
-        if (i < entranceCount) {
-            object.element.dataset.currentImageIndex = i + 1;
-            object.element.style.backgroundImage = `url(\"assets/images/thumbs/${i + 1}.webp\")`;
-        }
+        object.element.dataset.currentImageIndex = i + 1;
+        if (i < entranceCount) object.element.style.backgroundImage = `url(\"assets/images/thumbs/${i + 1}.webp\")`;
     }
 
     const updateStrip = () => {
-        const offset = state.progress * travelDistance;
+        const offset = initialCenterIndex * spacing + state.progress * travelDistance;
         for (let i = 0; i < entranceCount; i++) {
             const object = objects[i];
-            const x = startX + i * spacing - offset;
+            const x = i * spacing - offset;
             const distance = Math.abs(x);
-            // 中央卡片明显放大，左右卡片缩小，焦点始终锁定在屏幕中央。
-            const focus = Math.max(0, 1 - distance / (spacing * 1.45));
-            const scale = 0.82 + focus * 0.58;
-            object.position.set(x, 0, focus * 420);
+            const focus = Math.max(0, 1 - distance / (spacing * 1.55));
+            // 中央最大，两侧自然缩小；缩放随位置连续变化，没有跳变。
+            const scale = 0.60 + focus * 0.40;
+            object.position.set(x, 0, focus * 520);
             object.scale.set(scale, scale, scale);
         }
     };
@@ -504,12 +504,13 @@ function enterAnimation() {
         .easing(TWEEN.Easing.Linear.None)
         .onUpdate(updateStrip)
         .onComplete(() => {
-            // 50 张大图展示完成后，全部照片从左侧打散并汇聚成爱心。
+            // 50 张照片完整滑过后，再让全部 120 张照片打散并组合成爱心。
             for (let i = 0; i < objects.length; i++) {
                 const object = objects[i];
                 object.visible = true;
                 object.element.style.width = '90px';
                 object.element.style.height = '120px';
+                object.element.style.willChange = 'auto';
                 object.position.set(-3600 - Math.random() * 1400, (Math.random() - 0.5) * 2200, (Math.random() - 0.5) * 1800);
                 object.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
                 object.scale.set(0.72, 0.72, 0.72);
