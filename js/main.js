@@ -920,7 +920,10 @@ function moveCameraSmooth(targetPos, targetTgt, duration) {
         const t0 = performance.now();
         const timer = setInterval(() => {
             const p = Math.min(1, (performance.now() - t0) / duration);
-            const e = p < 0.5 ? 4*p*p*p : 1 - Math.pow(-2*p+2, 3)/2;
+            const c1 = 1.70158, c2 = c1 * 1.525;
+            const e = p < 0.5
+                ? (Math.pow(2*p, 2) * ((c2+1)*2*p - c2)) / 2
+                : (Math.pow(2*p-2, 2) * ((c2+1)*(p*2-2) + c2) + 2) / 2;
             camera.position.set(sx + (targetPos.x - sx)*e, sy + (targetPos.y - sy)*e, sz + (targetPos.z - sz)*e);
             controls.target.set(tx + (targetTgt.x - tx)*e, ty + (targetTgt.y - ty)*e, tz + (targetTgt.z - tz)*e);
             camera.lookAt(controls.target);
@@ -951,7 +954,8 @@ function cameraTour() {
             controls.enabled = prevEnabled;
             return;
         }
-        const p = Math.min(1, (performance.now() - t0) / duration);
+        const raw = Math.min(1, (performance.now() - t0) / duration);
+        const p = raw < 0.5 ? 4*raw*raw*raw : 1 - Math.pow(-2*raw+2, 3)/2;
         const t = p * Math.PI * 2;
         if (name === 'tree') {
             // 圣诞树：从树顶螺旋下降到树底
