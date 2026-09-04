@@ -818,6 +818,14 @@ function fadeMessageUp() {
     });
 }
 async function playMessage() {
+    // 终止正在进行的运镜动画
+    if (tourPlaying) {
+        if (tourTimer) clearInterval(tourTimer);
+        if (moveTimer) clearInterval(moveTimer);
+        tourTimer = null;
+        moveTimer = null;
+        tourPlaying = false;
+    }
     messagePlaying = true;
     const prevAutoRotate = controls.autoRotate;
     const prevEnabled = controls.enabled;
@@ -887,8 +895,9 @@ function moveCameraSmooth(targetPos, targetTgt, duration) {
             camera.position.set(sx + (targetPos.x - sx)*e, sy + (targetPos.y - sy)*e, sz + (targetPos.z - sz)*e);
             controls.target.set(tx + (targetTgt.x - tx)*e, ty + (targetTgt.y - ty)*e, tz + (targetTgt.z - tz)*e);
             camera.lookAt(controls.target);
-            if (p >= 1) { clearInterval(timer); res(); }
+            if (p >= 1) { clearInterval(timer); moveTimer = null; res(); }
         }, 16);
+        moveTimer = timer;
     });
 }
 function cameraTour() {
@@ -925,6 +934,7 @@ function cameraTour() {
         camera.lookAt(controls.target);
         if (p >= 1) {
             clearInterval(timer);
+            tourTimer = null;
             // 平滑回到原位
             moveCameraSmooth(startPos, startTgt, 1800).then(() => {
                 controls.autoRotate = prevAutoRotate;
@@ -933,6 +943,7 @@ function cameraTour() {
             });
         }
     }, 16);
+    tourTimer = timer;
 }
 function switchShape() {
     if (shapeBusy) return;
@@ -953,6 +964,8 @@ let suppressPhotoClick = false;
 let tapCount = 0;
 let tapTimer = null;
 let tourPlaying = false;
+let tourTimer = null;
+let moveTimer = null;
 window.addEventListener('pointerdown', (e) => {
     if (messagePlaying || tourPlaying) return;
     if (e.target.closest && e.target.closest('.element')) return;
