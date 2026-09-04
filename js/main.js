@@ -362,7 +362,7 @@ function init() {
         element.className = 'element';
         
         let imgIndex = (i % totalUploadedPhotos) + 1;
-        element.style.backgroundImage = `url('assets/images/${imgIndex}.webp')`;
+        element.style.backgroundImage = `url('assets/images/thumbs/${imgIndex}.webp')`;
         
         let pointerDownPos = { x: 0, y: 0 };
         element.addEventListener('pointerdown', (e) => {
@@ -453,14 +453,31 @@ function init() {
     document.getElementById('btn-grid').addEventListener('click', () => transform(targets.grid, 1500));
 }
 
+let thumbPreloadDone = false;
+function preloadThumbs() {
+    const jobs = [];
+    for (let index = 1; index <= totalUploadedPhotos; index++) {
+        jobs.push(new Promise(resolve => {
+            const image = new Image();
+            image.onload = resolve;
+            image.onerror = resolve;
+            image.src = `assets/images/thumbs/${index}.webp`;
+        }));
+    }
+    Promise.all(jobs).then(() => { thumbPreloadDone = true; });
+}
+
 function enterAnimation() {
     TWEEN.removeAll();
-    const duration = 1600;
+    const duration = 1500;
     for (let i = 0; i < objects.length; i++) {
         const object = objects[i];
         const target = targets.heart[i];
         object.visible = true;
         object.scale.set(1, 1, 1);
+        const imgIndex = (i % totalUploadedPhotos) + 1;
+        // 入场阶段先显示轻量预览图，避免大量高清图解码造成卡顿。
+        object.element.style.backgroundImage = `url('assets/images/thumbs/${imgIndex}.webp')`;
         object.position.set(
             4000 + Math.random() * 2000,
             (Math.random() - 0.5) * 2400,
@@ -478,7 +495,17 @@ function enterAnimation() {
             .delay(i * 8)
             .start();
     }
+    // 动画结束后，把所有卡片换成高清原图。
+    const swapDelay = duration + 900;
+    setTimeout(() => {
+        for (let i = 0; i < objects.length; i++) {
+            const imgIndex = (i % totalUploadedPhotos) + 1;
+            objects[i].element.style.backgroundImage = `url('assets/images/${imgIndex}.webp')`;
+        }
+    }, swapDelay);
 }
+
+preloadThumbs();
 
 function transform( targets, duration ) {
     TWEEN.removeAll();
