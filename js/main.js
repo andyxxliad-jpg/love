@@ -459,10 +459,10 @@ function enterAnimation() {
     const previousAutoRotate = controls.autoRotate;
     controls.autoRotate = false;
     const carouselCards = [objects[0], objects[1], objects[2]];
-    const sideX = 350;
+    const sideX = 390;
     const exitX = -1250;
-    const cardWidth = '145px';
-    const cardHeight = '190px';
+    const cardWidth = '170px';
+    const cardHeight = '225px';
     let nextImage = 4;
 
     // 轮播阶段只显示三张照片：左边、中央、右边。
@@ -506,7 +506,7 @@ function enterAnimation() {
         setTimeout(() => {
             controls.autoRotate = previousAutoRotate;
             startFullPhotoLoading();
-        }, 2500);
+        }, 5000);
     };
 
     const advanceCarousel = () => {
@@ -520,8 +520,8 @@ function enterAnimation() {
         const right = carouselCards[2];
         const state = { progress: 0 };
         new TWEEN.Tween(state)
-            .to({ progress: 1 }, 520)
-            .easing(TWEEN.Easing.Quadratic.InOut)
+            .to({ progress: 1 }, 280)
+            .easing(TWEEN.Easing.Cubic.InOut)
             .onUpdate(() => {
                 const p = state.progress;
                 const smooth = p * p * (3 - 2 * p);
@@ -530,7 +530,7 @@ function enterAnimation() {
                 // 中间照片滑向左边并缩小。
                 place(center, -sideX * smooth, 1.16 - 0.40 * smooth, 220 * (1 - smooth));
                 // 左边照片滑出屏幕。
-                place(left, -sideX - (exitX + sideX) * smooth, 0.76 - 0.18 * smooth, 0);
+                place(left, -sideX + (exitX + sideX) * smooth, 0.76 - 0.18 * smooth, 0);
             })
             .onComplete(() => {
                 // 离场卡片立刻换成下一张，并放回右侧，等待下一轮进入。
@@ -539,7 +539,7 @@ function enterAnimation() {
                 carouselCards[0] = center;
                 carouselCards[1] = right;
                 carouselCards[2] = left;
-                setTimeout(advanceCarousel, 90);
+                advanceCarousel();
             })
             .start();
     };
