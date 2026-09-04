@@ -930,7 +930,7 @@ function moveCameraSmooth(targetPos, targetTgt, duration) {
     });
 }
 function cameraTour() {
-    if (tourPlaying) return;
+    if (tourPlaying || messagePlaying) return;
     tourPlaying = true;
     const prevAutoRotate = controls.autoRotate;
     const prevEnabled = controls.enabled;
@@ -940,24 +940,34 @@ function cameraTour() {
     controls.enabled = false;
     const name = SHAPE_NAMES[currentShapeIndex];
     const t0 = performance.now();
-    const duration = 9000;
+    const duration = 10000;
     const timer = setInterval(() => {
+        // 88 秒文字动画优先：一旦触发立即停止运镜
+        if (messagePlaying) {
+            clearInterval(timer);
+            tourTimer = null;
+            tourPlaying = false;
+            controls.autoRotate = prevAutoRotate;
+            controls.enabled = prevEnabled;
+            return;
+        }
         const p = Math.min(1, (performance.now() - t0) / duration);
         const t = p * Math.PI * 2;
         if (name === 'tree') {
-            // 圣诞树：从树顶移到树底
+            // 圣诞树：从树顶螺旋下降到树底
             const y = 950 - p * 1900;
-            camera.position.set(1900, y, 1400);
-            controls.target.set(0, y * 0.55, 0);
+            const ang = p * Math.PI * 2.5;
+            camera.position.set(Math.cos(ang)*1650, y, Math.sin(ang)*1650);
+            controls.target.set(0, y * 0.6, 0);
         } else if (name === 'heart') {
-            // 爱心：沿爱心轮廓临摹
-            const x = 16 * Math.pow(Math.sin(t), 3) * 130;
-            const y = (13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t)) * 130;
-            camera.position.set(x, y + 160, 2500);
+            // 爱心：镜头贴着照片环绕一圈
+            const x = 16 * Math.pow(Math.sin(t), 3) * 58;
+            const y = (13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t)) * 58;
+            camera.position.set(x, y + 150, 650);
             controls.target.set(0, 150, 0);
         } else {
-            // 其他形状：环绕一周
-            camera.position.set(Math.cos(t)*2300, 260, Math.sin(t)*2300);
+            // 其他形状：电影级环绕 + 俯仰呼吸
+            camera.position.set(Math.cos(t)*2050, 180 + Math.sin(t*2.5)*340, Math.sin(t)*2050);
             controls.target.set(0, 0, 0);
         }
         camera.lookAt(controls.target);
