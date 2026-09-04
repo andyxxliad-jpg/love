@@ -121,3 +121,7 @@ html, body {
 .letter-bg { background-color: #fffafb; }
 #letter-modal .letter-bg { max-height: 74vh; overflow-y: auto; overscroll-behavior: contain; }
 .typewriter-content { white-space: pre-wrap; overflow-wrap: break-word; }
+
+/* 小作文黑屏过渡 */
+#blackout { position: fixed; inset: 0; z-index: 4000; background: #000; opacity: 0; pointer-events: none; transition: opacity .5s ease; }
+#blackout.show { opacity: 1; }
