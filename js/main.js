@@ -185,19 +185,28 @@ function showModal(id) {
     modal.classList.remove('fade-out');
     void modal.offsetWidth;
     modal.classList.add('fade-in');
-    if (id === 'letter-modal' && !window.typewriterStarted) {
+    if (id === 'letter-modal') {
         startTypewriter();
-        window.typewriterStarted = true;
     }
 }
 
+let letterShouldOpen = false;
 function openLetterWhenReady() {
+    letterShouldOpen = true;
     const tryOpen = () => {
         if (!photosReady) {
             setTimeout(tryOpen, 80);
             return;
         }
-        requestAnimationFrame(() => showModal('letter-modal'));
+        const screen = document.getElementById('photo-loading-screen');
+        if (screen && !screen.classList.contains('hidden')) {
+            setTimeout(tryOpen, 80);
+            return;
+        }
+        if (letterShouldOpen) {
+            letterShouldOpen = false;
+            requestAnimationFrame(() => showModal('letter-modal'));
+        }
     };
     tryOpen();
 }
@@ -407,11 +416,13 @@ function enterAnimation() {
         object.scale.set(1, 1, 1);
         object.visible = true;
     }
+    cullingEnabled = true;
     render();
 }
 
 function transform( targets, duration ) {
     TWEEN.removeAll();
+    cullingEnabled = false;
     for ( let i = 0; i < objects.length; i ++ ) {
         const object = objects[ i ];
         const target = targets[ i ];
@@ -426,7 +437,7 @@ function transform( targets, duration ) {
             .easing( TWEEN.Easing.Exponential.InOut )
             .start();
     }
-    new TWEEN.Tween( this ).to( {}, duration * 2 ).onUpdate( render ).start();
+    new TWEEN.Tween( this ).to( {}, duration * 2 ).onUpdate( render ).onComplete(() => { cullingEnabled = true; }).start();
 }
 
 function onWindowResize() {
@@ -452,7 +463,21 @@ function animate() {
 
 function render() {
     rendererWebGL.render( sceneWebGL, camera );
+    updatePhotoCulling();
     rendererCSS.render( sceneCSS, camera );
+}
+
+let cullingEnabled = false;
+function updatePhotoCulling() {
+    if (!cullingEnabled) return;
+    const cameraWorld = new THREE.Vector3();
+    camera.getWorldPosition(cameraWorld);
+    const visibleRadius = 2600;
+    for (let i = 0; i < objects.length; i++) {
+        const object = objects[i];
+        const distance = object.position.distanceTo(cameraWorld);
+        object.visible = distance < visibleRadius;
+    }
 }
 
 const isFirstTime = !localStorage.getItem('universeVisited_v14');
