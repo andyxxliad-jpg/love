@@ -91,66 +91,6 @@
     <audio id="bgm" src="assets/audio/1.mp3" preload="auto" loop playsinline webkit-playsinline></audio>
     
 <div id="blackout"></div>
-<div id="maintenance-overlay"><div class="maint-box"><h2>网站维护中</h2><p>暂时无法访问，请稍后再来</p></div></div>
-<div id="console-lock" class="console-overlay">
-  <div class="console-box">
-    <h3>控制台密码</h3>
-    <input type="password" id="console-pwd" placeholder="请输入密码">
-    <div class="console-actions"><button id="console-unlock">进入</button><button id="console-cancel">取消</button></div>
-  </div>
-</div>
-<div id="console-panel" class="console-overlay">
-  <div class="console-box console-panel">
-    <h3>控制台</h3>
-    <div class="console-sec">
-      <label><input type="checkbox" id="cfg-announce"> 公告功能</label>
-      <textarea id="cfg-announce-text" rows="4" placeholder="公告内容"></textarea>
-    </div>
-    <div class="console-sec">
-      <label><input type="checkbox" id="cfg-testbtn"> 测试按钮</label>
-      <label><input type="checkbox" id="cfg-calendar"> 日历功能</label>
-      <label><input type="checkbox" id="cfg-maintenance"> 网站维护中</label>
-      <label><input type="checkbox" id="cfg-music"> 背景音乐</label>
-      <label><input type="checkbox" id="cfg-doubletap"> 双击切换形状</label>
-      <label><input type="checkbox" id="cfg-tripletap"> 三击运镜</label>
-      <label><input type="checkbox" id="cfg-letter"> 88秒文字动画</label>
-      <label><input type="checkbox" id="cfg-tips"> 操作提示弹窗</label>
-      <label><input type="checkbox" id="cfg-photozoom"> 点击照片放大</label>
-      <label><input type="checkbox" id="cfg-nametap"> 四连击显示名字</label>
-      <label><input type="checkbox" id="cfg-fivetap"> 五连击播放文字动画</label>
-    </div>
-    <div class="console-sec">
-      <h4>动画参数</h4>
-      <label>运镜环绕速度（秒）<input type="number" id="cfg-tourduration" min="3" max="30"></label>
-      <label>环绕距离倍率 <input type="number" id="cfg-tourdistance" step="0.1" min="0.5" max="2"></label>
-      <label>爱心大小倍率 <input type="number" id="cfg-heartscale" step="0.1" min="0.5" max="2"></label>
-      <label>爱心图片数量 <input type="number" id="cfg-photocount" min="10" max="120"></label>
-    </div>
-    <div class="console-sec">
-      <h4>网站信息</h4>
-      <label>网站标题 <input type="text" id="cfg-title"></label>
-      <label>网站描述 <input type="text" id="cfg-desc"></label>
-    </div>
-    <div class="console-sec">
-      <h4>数据</h4>
-      <div class="console-actions"><button id="cfg-preview">预览效果</button><button id="cfg-export">导出配置JSON</button><button id="cfg-reset">一键重置</button></div>
-    </div>
-    <div class="console-sec">
-      <h4>日历记录</h4>
-      <div class="cal-add-row"><input type="date" id="cal-date"><input type="text" id="cal-text" placeholder="发生了什么"><button id="cal-add">添加</button></div>
-      <div id="cal-list"></div>
-    </div>
-    <div class="console-actions"><button id="console-close">关闭控制台</button></div>
-  </div>
-</div>
-<div id="announce-modal" class="modal">
-  <div class="modal-content"><span class="close" onclick="closeAnnounce()">&times;</span><h2 class="modal-title">公告</h2><div id="announce-content"></div></div>
-</div>
-<div id="calendar-modal" class="modal">
-  <div class="modal-content"><span class="close" onclick="hideModal('calendar-modal')">&times;</span><h2 class="modal-title">我们的日历</h2><div id="calendar-content"></div></div>
-</div>
-<button id="calendar-fab" title="日历">📅</button>
-<button id="test-btn">测试</button>
 <div id="double-tap-hint">双击切换形状 · 三击播放运镜</div>
 <div id="letter-overlay"></div>
 <script src="js/main.js?v=90"></script>
