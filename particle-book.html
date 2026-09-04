@@ -60,7 +60,7 @@ let pageIndex = 0;                          // 0..59，显示照片 (2n+1, 2n+2)
 let busy = false;
 
 let renderer, scene, camera, controls, bookGroup, starPoints, framePoints, titlePoints;
-let leftMesh, rightMesh, leftMat, rightMat, tiltGroup;
+let leftMesh, rightMesh, rightPivot, leftMat, rightMat, tiltGroup;
 
 const $ = id => document.getElementById(id);
 const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
@@ -157,7 +157,7 @@ function buildTitleParticles() {
 function init() {
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 1, 20000);
-  camera.position.set(0, 300, 1750);
+  camera.position.set(0, 80, 1750);
   camera.lookAt(0, 0, 0);
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -174,9 +174,9 @@ function init() {
   controls.dampingFactor = .08;
   controls.autoRotate = false;
 
-  // 书本组
+  // 书本组：页面向上摊开（立起面向观众），保留一定透视看得到厚度与书脊
   bookGroup = new THREE.Group();
-  bookGroup.rotation.x = 0.46;
+  bookGroup.rotation.x = -0.38;
   scene.add(bookGroup);
   // 翻页倾斜组（照片层）
   tiltGroup = new THREE.Group();
@@ -213,14 +213,17 @@ function init() {
 
   // 左右照片平面（清晰贴图）
   const pageGeo = new THREE.PlaneGeometry(PAGE_W, PAGE_H);
-  leftMat = new THREE.MeshBasicMaterial({ map: null, transparent: true, opacity: 1, depthWrite: false });
-  rightMat = new THREE.MeshBasicMaterial({ map: null, transparent: true, opacity: 1, depthWrite: false });
+  leftMat = new THREE.MeshBasicMaterial({ map: null, transparent: true, opacity: 1, depthWrite: false, side: THREE.DoubleSide });
+  rightMat = new THREE.MeshBasicMaterial({ map: null, transparent: true, opacity: 1, depthWrite: false, side: THREE.DoubleSide });
   leftMesh = new THREE.Mesh(pageGeo, leftMat);
   leftMesh.position.set(-PAGE_W/2, 0, -1);
+  rightPivot = new THREE.Group();
+  rightPivot.position.set(0, 0, 0);
   rightMesh = new THREE.Mesh(pageGeo, rightMat);
   rightMesh.position.set(PAGE_W/2, 0, -1);
+  rightPivot.add(rightMesh);
   tiltGroup.add(leftMesh);
-  tiltGroup.add(rightMesh);
+  tiltGroup.add(rightPivot);
 
   // 标题粒子
   const tp = buildTitleParticles();
@@ -270,27 +273,23 @@ async function goToPage(newIndex) {
   const leftNo = newIndex*2+1, rightNo = newIndex*2+2;
   const [imgL, imgR] = await Promise.all([getImage(leftNo), getImage(rightNo)]);
   const texL = makePageTexture(imgL), texR = makePageTexture(imgR);
-  // 淡出 + 倾翻
-  await new Promise(res => animateValue(260, p => {
-    leftMat.opacity = 1 - p;
-    rightMat.opacity = 1 - p;
-    tiltGroup.rotation.x = p * 0.12;
-  }, res));
-  // 换纹理
   const oldL = leftMat.map, oldR = rightMat.map;
-  leftMat.map = texL; leftMat.needsUpdate = true;
+  // 右页绕书脊从右往左翻（0° → -180°，向前翻越书脊落到左侧）
+  let swapped = false;
+  await new Promise(res => animateValue(720, p => {
+    rightPivot.rotation.y = -Math.PI * p;
+    if (p >= 0.5 && !swapped) {
+      swapped = true;
+      leftMat.map = texL; leftMat.needsUpdate = true;
+      if (oldL) oldL.dispose();
+    }
+  }, res));
+  // 翻页完成：右页复位，换上新右页照片
+  rightPivot.rotation.y = 0;
   rightMat.map = texR; rightMat.needsUpdate = true;
+  if (oldR) oldR.dispose();
   pageIndex = newIndex;
   $('page-ind').textContent = `第 ${newIndex+1} / ${TOTAL_PAIRS} 页`;
-  if (oldL) oldL.dispose();
-  if (oldR) oldR.dispose();
-  // 淡入 + 回正
-  await new Promise(res => animateValue(300, p => {
-    leftMat.opacity = p;
-    rightMat.opacity = p;
-    tiltGroup.rotation.x = (1 - p) * 0.12;
-  }, res));
-  tiltGroup.rotation.x = 0;
   busy = false;
 }
 
