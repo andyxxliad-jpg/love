@@ -181,7 +181,6 @@ btnEnter.addEventListener('click', () => {
         mainUI.style.pointerEvents = 'none';
         audio.play().catch(e => console.log('Audio autoplay blocked:', e));
         enterAnimation();
-        startFullPhotoLoading();
         controlsUI.classList.remove('hidden');
         uiFadeTimeout = setTimeout(() => { controlsUI.classList.add('hidden'); }, 3000);
         startQuotesCycle();
@@ -372,7 +371,8 @@ function init() {
             const dy = Math.abs(e.clientY - pointerDownPos.y);
             if (dx < 5 && dy < 5) {
                 const enlargedPhoto = document.getElementById('enlarged-photo');
-                enlargedPhoto.src = `assets/images/${imgIndex}.webp`;
+                const currentImageIndex = Number(element.dataset.currentImageIndex || imgIndex);
+                enlargedPhoto.src = `assets/images/${currentImageIndex}.webp`;
                 showModal('photo-modal');
             }
         });
@@ -458,59 +458,97 @@ function enterAnimation() {
     TWEEN.removeAll();
     const previousAutoRotate = controls.autoRotate;
     controls.autoRotate = false;
-    const carouselCount = Math.min(9, objects.length);
-    const middle = Math.floor(carouselCount / 2);
-    const spacing = 260;
-    const travel = 3600;
-    const carouselDuration = 4200;
-    const state = { progress: 0 };
+    const carouselCards = [objects[0], objects[1], objects[2]];
+    const sideX = 350;
+    const exitX = -1250;
+    const cardWidth = '145px';
+    const cardHeight = '190px';
+    let nextImage = 4;
 
-    // 只让九张卡片参与首段横向画面，其他卡片隐藏，避免手机同时绘制 120 张 DOM 卡片。
+    // 轮播阶段只显示三张照片：左边、中央、右边。
     for (let i = 0; i < objects.length; i++) {
         const object = objects[i];
-        object.visible = i < carouselCount;
+        object.visible = i < 3;
         object.rotation.set(0, 0, 0);
-        object.scale.set(1, 1, 1);
-        if (i < carouselCount) {
-            const x = (i - middle) * spacing;
-            object.position.set(x, 0, 0);
+        if (i < 3) {
+            object.element.style.width = cardWidth;
+            object.element.style.height = cardHeight;
         }
+        object.scale.set(1, 1, 1);
     }
 
-    const updateCarousel = () => {
-        for (let i = 0; i < carouselCount; i++) {
-            const object = objects[i];
-            const initialX = (i - middle) * spacing;
-            const x = initialX - state.progress * travel;
-            const distance = Math.abs(x);
-            const focus = Math.max(0, 1 - distance / 620);
-            const scale = 0.72 + focus * 0.68;
-            const depth = focus * 220;
-            object.position.set(x, 0, depth);
-            object.scale.set(scale, scale, scale);
-            object.rotation.set(0, 0, 0);
-        }
+    const place = (object, x, scale, z) => {
+        object.position.set(x, 0, z || 0);
+        object.scale.set(scale, scale, scale);
+        object.rotation.set(0, 0, 0);
+    };
+    place(carouselCards[0], -sideX, 0.76, 0);
+    place(carouselCards[1], 0, 1.16, 220);
+    place(carouselCards[2], sideX, 0.76, 0);
+
+    const setCarouselImage = (object, index) => {
+        object.element.dataset.currentImageIndex = index;
+        object.element.style.backgroundImage = `url(\"assets/images/thumbs/${index}.webp\")`;
     };
 
-    updateCarousel();
-    new TWEEN.Tween(state)
-        .to({ progress: 1 }, carouselDuration)
-        .easing(TWEEN.Easing.Quadratic.InOut)
-        .onUpdate(updateCarousel)
-        .onComplete(() => {
-            // 照片滑出左侧后全部打散，再汇聚成爱心。
-            for (let i = 0; i < objects.length; i++) {
-                const object = objects[i];
-                object.visible = true;
-                object.position.set(-3600 - Math.random() * 1400, (Math.random() - 0.5) * 2200, (Math.random() - 0.5) * 1800);
-                object.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-                object.scale.set(0.72, 0.72, 0.72);
-            }
-            transform(targets.heart, 2000);
-        })
-        .start();
+    const beginHeart = () => {
+        // 120 张照片全部轮播展示完成后，才让全部卡片打散并汇聚成爱心。
+        for (let i = 0; i < objects.length; i++) {
+            const object = objects[i];
+            object.visible = true;
+            object.element.style.width = '90px';
+            object.element.style.height = '120px';
+            object.position.set(-3600 - Math.random() * 1400, (Math.random() - 0.5) * 2200, (Math.random() - 0.5) * 1800);
+            object.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+            object.scale.set(0.72, 0.72, 0.72);
+        }
+        transform(targets.heart, 2200);
+        setTimeout(() => {
+            controls.autoRotate = previousAutoRotate;
+            startFullPhotoLoading();
+        }, 2500);
+    };
 
-    setTimeout(() => { controls.autoRotate = previousAutoRotate; }, carouselDuration + 2300);
+    const advanceCarousel = () => {
+        if (nextImage > totalUploadedPhotos) {
+            setTimeout(beginHeart, 800);
+            return;
+        }
+
+        const left = carouselCards[0];
+        const center = carouselCards[1];
+        const right = carouselCards[2];
+        const state = { progress: 0 };
+        new TWEEN.Tween(state)
+            .to({ progress: 1 }, 520)
+            .easing(TWEEN.Easing.Quadratic.InOut)
+            .onUpdate(() => {
+                const p = state.progress;
+                const smooth = p * p * (3 - 2 * p);
+                // 右边照片滑入中央并放大。
+                place(right, sideX * (1 - smooth), 0.76 + 0.40 * smooth, 220 * smooth);
+                // 中间照片滑向左边并缩小。
+                place(center, -sideX * smooth, 1.16 - 0.40 * smooth, 220 * (1 - smooth));
+                // 左边照片滑出屏幕。
+                place(left, -sideX - (exitX + sideX) * smooth, 0.76 - 0.18 * smooth, 0);
+            })
+            .onComplete(() => {
+                // 离场卡片立刻换成下一张，并放回右侧，等待下一轮进入。
+                setCarouselImage(left, nextImage++);
+                place(left, sideX, 0.76, 0);
+                carouselCards[0] = center;
+                carouselCards[1] = right;
+                carouselCards[2] = left;
+                setTimeout(advanceCarousel, 90);
+            })
+            .start();
+    };
+
+    // 初始就是第 1、2、3 张；第 2 张在中央放大，第 3 张从右侧准备进入。
+    setCarouselImage(carouselCards[0], 1);
+    setCarouselImage(carouselCards[1], 2);
+    setCarouselImage(carouselCards[2], 3);
+    advanceCarousel();
 }
 
 function transform( targets, duration ) {
@@ -576,7 +614,6 @@ if (!isFirstTime) {
             requestAnimationFrame(() => {
                 document.getElementById('main-ui').style.opacity = '1';
                 enterAnimation();
-                startFullPhotoLoading();
                 startQuotesCycle();
             });
         };
