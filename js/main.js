@@ -429,7 +429,7 @@ function init() {
     }
     nameGeo.setAttribute('position', new THREE.BufferAttribute(namePos, 3));
     namePoints = new THREE.Points(nameGeo, new THREE.PointsMaterial({
-        size: 11, map: texture, transparent: true, opacity: 1,
+        size: 8, map: texture, transparent: true, opacity: 1,
         blending: THREE.AdditiveBlending, depthWrite: false }));
     const nameGroup = new THREE.Group();
     nameGroup.position.set(0, 920, 0);
@@ -881,13 +881,13 @@ function buildNameParticles() {
     pts.push(...sampleNameText('andy', -340));
     pts.push(...sampleNameText('陶陶', 340));
     // 中间：粒子排列成空心爱心轮廓
-    // 实心 3D 爱心：缩小一号、更多粒子填充、不挡两侧文字
-    for (let i = 0; i < 900; i++) {
+    // 标准实心 3D 爱心（直接生成完整爱心形状）
+    for (let i = 0; i < 1200; i++) {
         const t = Math.random() * Math.PI * 2;
         const rr = Math.sqrt(Math.random());
-        const hx = 16 * Math.pow(Math.sin(t), 3) * 16 * rr;
-        const hy = (13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t)) * 16 * rr;
-        pts.push(hx, hy + 6, (Math.random() - .5) * 20);
+        const hx = 16 * Math.pow(Math.sin(t), 3) * 18 * rr;
+        const hy = (13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t)) * 18 * rr;
+        pts.push(hx, hy + 6, (Math.random() - .5) * 22);
     }
     return pts;
 }
