@@ -29,7 +29,6 @@ function preloadAllPhotos() {
             const screen = document.getElementById('photo-loading-screen');
             if (screen) screen.classList.add('hidden');
             onPhotosReady();
-            setTimeout(playMessage, 88000);
         }
     };
     const loadNext = () => {
@@ -71,12 +70,25 @@ let audio = document.getElementById('bgm');
 // 移动端浏览器（百度/夸克/Safari 等）几乎都禁止无手势的自动播放，
 // 因此改为：用户第一次与页面交互（点击/触摸）时立即开始播放，兼容性最好。
 let musicStarted = false;
+let messageTimerSet = false;
 function startMusic() {
     if (!audio || musicStarted) return;
     musicStarted = true;
     audio.muted = false;
     const p = audio.play();
-    if (p && p.catch) p.catch(() => { musicStarted = false; });
+    if (p && p.then) {
+        p.then(() => {
+            if (!messageTimerSet) {
+                messageTimerSet = true;
+                setTimeout(playMessage, 88000);
+            }
+        }).catch(() => { musicStarted = false; });
+    } else {
+        if (!messageTimerSet) {
+            messageTimerSet = true;
+            setTimeout(playMessage, 88000);
+        }
+    }
 }
 audio.preload = 'auto';
 ['pointerdown', 'touchstart', 'touchend', 'click', 'keydown'].forEach(function (ev) {
