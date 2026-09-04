@@ -134,7 +134,7 @@ btnEnter.addEventListener('click', () => {
         mainUI.style.pointerEvents = 'none';
         
         audio.play().catch(e => console.log('Audio autoplay blocked:', e));
-        enterAnimation();
+        startAnimationWhenReady();
 
         controlsUI.classList.remove('hidden');
         uiFadeTimeout = setTimeout(() => { controlsUI.classList.add('hidden'); }, 3000);
@@ -202,6 +202,10 @@ function showModal(id) {
 }
 
 let letterShouldOpen = false;
+let animationPending = false;
+function startAnimationWhenReady() {
+    animationPending = true;
+}
 function openLetterWhenReady() {
     letterShouldOpen = true;
     const tryOpen = () => {
@@ -235,6 +239,10 @@ function hideModal(id) {
     setTimeout(() => {
         if(modal.classList.contains('fade-out')) {
             modal.style.display = 'none';
+        }
+        if (id === 'letter-modal' && animationPending) {
+            animationPending = false;
+            requestAnimationFrame(enterAnimation);
         }
     }, 300); 
 }
@@ -504,7 +512,7 @@ if (!isFirstTime) {
         document.getElementById('main-ui').style.opacity = '1';
         document.getElementById('main-ui').style.pointerEvents = 'none';
         
-        enterAnimation();
+        startAnimationWhenReady();
         startQuotesCycle();
         autoOpenLetter();
 
