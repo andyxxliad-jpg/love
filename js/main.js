@@ -239,7 +239,7 @@ function init() {
     camera.position.z = 2800; 
     
     sceneWebGL = new THREE.Scene();
-    const particleCount = 3500;
+    const particleCount = window.innerWidth <= 768 ? 1400 : 2400;
     const geometry = new THREE.BufferGeometry();
     const positions = new Float32Array(particleCount * 3);
     for(let i=0; i<particleCount*3; i++) {
@@ -270,7 +270,7 @@ function init() {
     particles = new THREE.Points(geometry, pMaterial);
     sceneWebGL.add(particles);
 
-    rendererWebGL = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    rendererWebGL = new THREE.WebGLRenderer({ alpha: true, antialias: window.devicePixelRatio < 2 });
     rendererWebGL.setSize( window.innerWidth, window.innerHeight );
     document.getElementById('webgl-container').appendChild( rendererWebGL.domElement );
 
