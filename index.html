@@ -51,11 +51,14 @@
             <button id="letter-shortcut" class="letter-shortcut" onclick="showModal('letter-modal')" aria-label="打开信件" title="打开信件">✉</button>
         </div>
 
-        <div class="controls hidden" id="shape-controls">
-            <button id="btn-heart">心形</button>
-            <button id="btn-sphere">球形</button>
-            <button id="btn-helix">螺旋</button>
-            <button id="btn-grid">网格</button>
+        <div class="controls" id="shape-controls">
+            <button class="shape-toggle" id="shape-toggle" aria-label="展开形状按钮">✦</button>
+            <div class="shape-buttons" id="shape-buttons">
+                <button class="shape-btn" id="btn-heart">心形</button>
+                <button class="shape-btn" id="btn-sphere">球形</button>
+                <button class="shape-btn" id="btn-helix">螺旋</button>
+                <button class="shape-btn" id="btn-grid">网格</button>
+            </div>
         </div>
 
         <div class="lyrics-box" id="quotes-box">
