@@ -713,16 +713,21 @@ function gatherMessage(text) {
         const scatter = messageScatter();
         const n3 = targets.length;
         const posAttr = messagePoints.geometry.attributes.position;
-        const state = { p: 0 };
-        new TWEEN.Tween(state).to({ p: 1 }, 1700).easing(TWEEN.Easing.Cubic.InOut)
+        const state = { t: 0 };
+        const total = 1.5;
+        new TWEEN.Tween(state).to({ t: total }, total * 1000).easing(TWEEN.Easing.Linear.None)
             .onUpdate(() => {
-                const p = state.p;
+                const t = state.t;
                 for (let i = 0; i < 8000; i++) {
                     const k = i*3;
                     if (k < n3) {
-                        posAttr.array[k] = scatter[k]*(1-p) + targets[k]*p;
-                        posAttr.array[k+1] = scatter[k+1]*(1-p) + targets[k+1]*p;
-                        posAttr.array[k+2] = scatter[k+2]*(1-p) + targets[k+2]*p;
+                        // 按 x 坐标（左→右）延迟，形成波浪式逐字浮现
+                        const delay = ((targets[k] + 350) / 700) * 0.55;
+                        const p = clamp((t - delay) / 0.6, 0, 1);
+                        const e = ease(p);
+                        posAttr.array[k] = scatter[k]*(1-e) + targets[k]*e;
+                        posAttr.array[k+1] = scatter[k+1]*(1-e) + targets[k+1]*e;
+                        posAttr.array[k+2] = scatter[k+2]*(1-e) + targets[k+2]*e;
                     } else {
                         posAttr.array[k] *= .97;
                         posAttr.array[k+1] *= .97;
@@ -867,6 +872,10 @@ function animate() {
     }
     
     controls.update();
+    if (messagePlaying && messagePoints) {
+        messagePoints.material.size = 4.5 + Math.sin(performance.now() * 0.004) * 1.1;
+        messagePoints.material.opacity = 0.85 + Math.sin(performance.now() * 0.003) * 0.15;
+    }
     if (SHAPE_NAMES[ currentShapeIndex ] === 'ferris' && !shapeBusy) {
         const d = 0.005;
         const c = Math.cos(d), s = Math.sin(d);
