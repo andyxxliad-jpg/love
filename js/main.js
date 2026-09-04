@@ -223,7 +223,7 @@ function startTypewriter() {
 let camera, sceneWebGL, sceneCSS, rendererWebGL, rendererCSS;
 let controls;
 const objects = [];
-const targets = { heart: [], tree: [], snowflake: [], ferris: [], galaxy: [], windchime: [] };
+const targets = { heart: [], tree: [], galaxy: [], rose: [], firework: [], infinity: [], vortex: [] };
 
 // 关键修改点：设定为 120 张
 const photoCount = 120; 
@@ -273,31 +273,46 @@ function init() {
     sceneWebGL.add(particles);
 
     // 树干与树顶星粒子（切换圣诞树时汇聚成形，心形时散回星空）
-    const trunkCount = 500;
+    const trunkCount = 2100;
     trunkBasePos = new Float32Array(trunkCount * 3);
     trunkTargetPos = new Float32Array(trunkCount * 3);
     trunkTargetCol = new Float32Array(trunkCount * 3);
-    for (let i = 0; i < trunkCount; i++) {
-        trunkBasePos[i*3] = (Math.random() - .5) * 5000;
-        trunkBasePos[i*3+1] = (Math.random() - .5) * 5000;
-        trunkBasePos[i*3+2] = (Math.random() - .5) * 5000;
-        if (i < 440) {
-            // 树干：树底向下延伸的柱体
-            const a = Math.random() * Math.PI * 2;
-            const r = 30 + Math.random() * 120;
-            trunkTargetPos[i*3] = Math.cos(a) * r;
-            trunkTargetPos[i*3+1] = -620 - Math.random() * 950;
-            trunkTargetPos[i*3+2] = Math.sin(a) * r;
-            trunkTargetCol[i*3] = 1; trunkTargetCol[i*3+1] = .94; trunkTargetCol[i*3+2] = .82;
-        } else {
-            // 树顶星：金色光晕
-            const a = Math.random() * Math.PI * 2;
-            const r = Math.random() * 130;
-            trunkTargetPos[i*3] = Math.cos(a) * r;
-            trunkTargetPos[i*3+1] = 920 + Math.random() * 140;
-            trunkTargetPos[i*3+2] = Math.sin(a) * r;
-            trunkTargetCol[i*3] = 1; trunkTargetCol[i*3+1] = .84; trunkTargetCol[i*3+2] = .45;
+    let ti = 0;
+    const putTrunkParticle = (x, y, z, r, g, b) => {
+        trunkBasePos[ti*3] = (Math.random() - .5) * 5000;
+        trunkBasePos[ti*3+1] = (Math.random() - .5) * 5000;
+        trunkBasePos[ti*3+2] = (Math.random() - .5) * 5000;
+        trunkTargetPos[ti*3] = x;
+        trunkTargetPos[ti*3+1] = y;
+        trunkTargetPos[ti*3+2] = z;
+        trunkTargetCol[ti*3] = r; trunkTargetCol[ti*3+1] = g; trunkTargetCol[ti*3+2] = b;
+        ti++;
+    };
+    // 树干：明显的高亮棕色柱体
+    for (let k = 0; k < 800; k++) {
+        const a = Math.random() * Math.PI * 2;
+        const r = 55 + Math.random() * 95;
+        putTrunkParticle(Math.cos(a)*r, -1600 + Math.random()*1250, Math.sin(a)*r, .92, .68, .45);
+    }
+    // 树枝：从树干伸向每张照片（照片挂在枝头）
+    for (let i = 0; i < 120; i++) {
+        const t = i / 120;
+        const angle = i * 2.39996;
+        const r = 880 * (1 - t) + 130;
+        const y = -380 + t * 1150;
+        for (let s = 0; s < 10; s++) {
+            const f = s / 9;
+            const bx = Math.cos(angle) * (110 + (r - 110) * f);
+            const by = (y - 40) + 40 * f;
+            const bz = Math.sin(angle) * (110 + (r - 110) * f);
+            putTrunkParticle(bx + (Math.random()-.5)*12, by + (Math.random()-.5)*12, bz + (Math.random()-.5)*12, .85, .6, .42);
         }
+    }
+    // 树顶星：金色光晕
+    for (let k = 0; k < 100; k++) {
+        const a = Math.random() * Math.PI * 2;
+        const r = Math.random() * 140;
+        putTrunkParticle(Math.cos(a)*r, 900 + Math.random()*150, Math.sin(a)*r, 1, .85, .4);
     }
     const trunkGeo = new THREE.BufferGeometry();
     const trunkInit = new Float32Array(trunkBasePos);
@@ -306,7 +321,7 @@ function init() {
     for (let i = 0; i < trunkCount * 3; i++) trunkColInit[i] = 1;
     trunkGeo.setAttribute('color', new THREE.BufferAttribute(trunkColInit, 3));
     trunkPoints = new THREE.Points(trunkGeo, new THREE.PointsMaterial({
-        size: 40, map: texture, vertexColors: true, transparent: true, opacity: .9,
+        size: 55, map: texture, vertexColors: true, transparent: true, opacity: .95,
         blending: THREE.AdditiveBlending, depthWrite: false }));
     sceneWebGL.add(trunkPoints);
 
@@ -358,42 +373,38 @@ function init() {
         targets.heart.push( object );
     }
 
-    // 圣诞树：照片分层挂在树冠上（共 120 张），面向外侧
-    const treeLevels = [
-        { y: -420, r: 1150, count: 48 },
-        { y: -60,  r: 880,  count: 40 },
-        { y: 320,  r: 600,  count: 26 },
-        { y: 620,  r: 300,  count: 6 }
-    ];
-    for ( const level of treeLevels ) {
-        for ( let j = 0; j < level.count; j ++ ) {
-            const a = ( j / level.count ) * Math.PI * 2;
-            const object = new THREE.Object3D();
-            object.position.set( Math.cos( a ) * level.r, level.y, Math.sin( a ) * level.r );
-            object.lookAt( 0, level.y, 0 );
-            targets.tree.push( object );
-        }
+    // 圣诞树：照片沿螺旋线一张一张挂在枝头，面向外侧
+    for ( let i = 0; i < objects.length; i ++ ) {
+        const t = i / objects.length;
+        const angle = i * 2.39996;
+        const r = 880 * (1 - t) + 130;
+        const y = -380 + t * 1150;
+        const object = new THREE.Object3D();
+        object.position.set( Math.cos( angle ) * r, y, Math.sin( angle ) * r );
+        object.lookAt( 0, y, 0 );
+        targets.tree.push( object );
     }
 
-    // 雪花：六条星芒臂从中心向外伸展
+    // 玫瑰：五叶玫瑰曲线，照片沿花瓣
     for ( let i = 0; i < objects.length; i ++ ) {
-        const arm = i % 6;
-        const idx = Math.floor( i / 6 );
-        const a = arm * Math.PI / 3;
-        const r = 140 + idx * 48;
+        const theta = ( i / objects.length ) * Math.PI * 2;
+        const rr = 820 * Math.abs( Math.cos( 5 * theta ) ) + 40;
         const object = new THREE.Object3D();
-        object.position.set( Math.cos( a ) * r, Math.sin( a ) * r, ( Math.random() - .5 ) * 90 );
+        object.position.set( rr * Math.cos( theta ), rr * Math.sin( theta ), ( Math.random() - .5 ) * 130 );
         object.lookAt( 0, 0, 0 );
-        targets.snowflake.push( object );
+        targets.rose.push( object );
     }
 
-    // 摩天轮：大圆环，照片面向圆心
+    // 烟花：十五条射线向外放射
     for ( let i = 0; i < objects.length; i ++ ) {
-        const a = ( i / objects.length ) * Math.PI * 2;
+        const ray = i % 15;
+        const idx = Math.floor( i / 15 );
+        const a = ray * ( Math.PI * 2 / 15 );
+        const r = 160 + idx * 95;
         const object = new THREE.Object3D();
-        object.position.set( Math.cos( a ) * 1000, Math.sin( a ) * 1000, 0 );
+        object.position.set( Math.cos( a ) * r, Math.sin( a ) * r, ( Math.random() - .5 ) * 170 );
         object.lookAt( 0, 0, 0 );
-        targets.ferris.push( object );
+        targets.firework.push( object );
     }
 
     // 银河：两条旋臂向外旋转展开
@@ -408,17 +419,25 @@ function init() {
         targets.galaxy.push( object );
     }
 
-    // 风铃：多列垂挂的照片串，列间波浪错落
-    const cols = 8;
+    // 无限符号：伯努利双纽线
     for ( let i = 0; i < objects.length; i ++ ) {
-        const col = i % cols;
-        const idx = Math.floor( i / cols );
-        const x = ( col - cols / 2 ) * 260;
-        const y = 700 - idx * 95;
-        const z = Math.sin( col * 1.1 ) * 170 + ( Math.random() - .5 ) * 50;
+        const t = ( i / objects.length ) * Math.PI * 2 - Math.PI;
+        const denom = 1 + Math.sin( t ) * Math.sin( t );
         const object = new THREE.Object3D();
-        object.position.set( x, y, z );
-        targets.windchime.push( object );
+        object.position.set( 820 * Math.cos( t ) / denom, 820 * Math.sin( t ) * Math.cos( t ) / denom, ( Math.random() - .5 ) * 150 );
+        targets.infinity.push( object );
+    }
+
+    // 漩涡：漏斗状螺旋向下收拢
+    for ( let i = 0; i < objects.length; i ++ ) {
+        const t = i / objects.length;
+        const angle = i * 0.5;
+        const r = 1000 * (1 - t) + 80;
+        const y = 780 * (1 - t) - 360;
+        const object = new THREE.Object3D();
+        object.position.set( Math.cos( angle ) * r, y, Math.sin( angle ) * r );
+        object.lookAt( 0, y, 0 );
+        targets.vortex.push( object );
     }
 
     rendererCSS = new THREE.CSS3DRenderer();
@@ -487,7 +506,7 @@ function enterAnimation() {
     new TWEEN.Tween(this).to({}, 6000).onUpdate(render).start();
 }
 
-const SHAPE_NAMES = [ 'heart', 'tree', 'snowflake', 'ferris', 'galaxy', 'windchime' ];
+const SHAPE_NAMES = [ 'heart', 'tree', 'galaxy', 'rose', 'firework', 'infinity', 'vortex' ];
 let currentShapeIndex = 0;
 let shapeBusy = false;
 function animateTrunk(toTree) {
