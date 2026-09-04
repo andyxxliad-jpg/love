@@ -458,27 +458,57 @@ function enterAnimation() {
     TWEEN.removeAll();
     const previousAutoRotate = controls.autoRotate;
     controls.autoRotate = false;
-    const flyDuration = 900;
-    const settleDelay = 1800;
+    const totalDuration = 5200;
+    const startX = 4600;
+    const crossX = -1200;
+    const exitX = -4300;
+
+    const ease = (value) => value * value * (3 - 2 * value);
+    const mix = (from, to, value) => from + (to - from) * value;
 
     for (let i = 0; i < objects.length; i++) {
         const obj = objects[i];
         const target = targets.heart[i];
-        obj.position.set(4000 + Math.random() * 1800, (Math.random() - 0.5) * 1800, (Math.random() - 0.5) * 1800);
-        obj.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
-        const delay = i * 12;
-        new TWEEN.Tween(obj.position)
-            .to({ x: target.position.x, y: target.position.y, z: target.position.z }, 1800)
-            .easing(TWEEN.Easing.Exponential.InOut)
-            .delay(delay)
-            .start();
-        new TWEEN.Tween(obj.rotation)
-            .to({ x: target.rotation.x, y: target.rotation.y, z: target.rotation.z }, 1800)
-            .easing(TWEEN.Easing.Exponential.InOut)
-            .delay(delay)
+        const startY = (Math.random() - 0.5) * 2200;
+        const startZ = (Math.random() - 0.5) * 1800;
+        const transitY = (Math.random() - 0.5) * 1700;
+        const transitZ = (Math.random() - 0.5) * 1500;
+        const exitY = (Math.random() - 0.5) * 2600;
+        const exitZ = (Math.random() - 0.5) * 2200;
+        const startRotation = { x: Math.random() * Math.PI * 2, y: Math.random() * Math.PI * 2, z: Math.random() * Math.PI };
+
+        obj.position.set(startX, startY, startZ);
+        obj.rotation.set(startRotation.x, startRotation.y, startRotation.z);
+        const state = { progress: 0 };
+
+        new TWEEN.Tween(state)
+            .to({ progress: 1 }, totalDuration)
+            .delay(i * 10)
+            .easing(TWEEN.Easing.Linear.None)
+            .onUpdate(() => {
+                const p = state.progress;
+                if (p < 0.38) {
+                    const t = ease(p / 0.38);
+                    obj.position.set(mix(startX, crossX, t), mix(startY, transitY, t), mix(startZ, transitZ, t));
+                    obj.rotation.set(startRotation.x, startRotation.y, startRotation.z);
+                } else if (p < 0.55) {
+                    const t = ease((p - 0.38) / 0.17);
+                    obj.position.set(mix(crossX, exitX, t), mix(transitY, exitY, t), mix(transitZ, exitZ, t));
+                    obj.rotation.set(mix(startRotation.x, startRotation.x + 0.8, t), mix(startRotation.y, startRotation.y + 1.2, t), mix(startRotation.z, startRotation.z + 0.6, t));
+                } else {
+                    const t = ease((p - 0.55) / 0.45);
+                    obj.position.set(mix(exitX, target.position.x, t), mix(exitY, target.position.y, t), mix(exitZ, target.position.z, t));
+                    obj.rotation.set(mix(startRotation.x + 0.8, target.rotation.x, t), mix(startRotation.y + 1.2, target.rotation.y, t), mix(startRotation.z + 0.6, target.rotation.z, t));
+                }
+            })
+            .onComplete(() => {
+                obj.position.copy(target.position);
+                obj.rotation.copy(target.rotation);
+            })
             .start();
     }
-    setTimeout(() => { controls.autoRotate = previousAutoRotate; }, settleDelay + objects.length * 12 + 1800);
+
+    setTimeout(() => { controls.autoRotate = previousAutoRotate; }, totalDuration + objects.length * 10 + 250);
 }
 
 function transform( targets, duration ) {
