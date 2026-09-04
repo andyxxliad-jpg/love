@@ -23,30 +23,9 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #03040a; c
 #page-ind { position: absolute; top: 4vh; right: 4vw; font-size: 14px; color: #e8ecff;
   background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.25); border-radius: 20px; padding: 6px 14px; }
 #hint { position: absolute; bottom: 3.5vh; left: 0; right: 0; text-align: center; font-size: 13px; color: #cfd6ff; opacity: .65; }
-#loading { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center;
-  background: #03040a; transition: opacity .8s ease; }
-#loading.hidden { opacity: 0; pointer-events: none; }
-.load-box { width: min(84vw, 360px); padding: 28px 22px; text-align: center; border: 1px solid rgba(255,255,255,.22);
-  border-radius: 24px; background: rgba(255,255,255,.06); box-shadow: 0 16px 50px rgba(0,0,0,.7); }
-.load-title { font: 700 30px Caveat, cursive; color: #fff; letter-spacing: 2px; margin-bottom: 14px; text-shadow: 0 0 20px rgba(255,255,255,.8); }
-.load-text { font-size: 15px; color: #dfe4ff; }
-.bar { height: 7px; margin: 18px 0 8px; border-radius: 8px; background: rgba(255,255,255,.15); overflow: hidden; }
-.bar i { display: block; width: 0; height: 100%; background: linear-gradient(90deg,#e8ecff,#fff); box-shadow: 0 0 14px #fff; border-radius: inherit; transition: width .25s; }
-.load-count { font-size: 12px; color: #aab2d8; }
-/* CSS3D 部件 */
-.book-paper { position: relative; background: #f6f1e6; border-radius: 4px 10px 10px 4px;
-  box-shadow: inset 0 0 24px rgba(130,105,80,.22), 0 0 12px rgba(0,0,0,.45);
-  overflow: hidden; }
+.book-paper { position: relative; background: #1c1322; border-radius: 4px 10px 10px 4px;
+  box-shadow: inset 0 0 18px rgba(120,90,140,.25), 0 0 10px rgba(0,0,0,.5); }
 .book-paper.right { border-radius: 10px 4px 4px 10px; }
-.book-photo { position: relative; border-radius: 8px; overflow: hidden; cursor: pointer;
-  border: 3px solid rgba(255,255,255,.85);
-  box-shadow: 0 8px 24px rgba(0,0,0,.6), 0 0 20px rgba(255,150,190,.45);
-  background-size: cover; background-position: center; background-color: #241625;
-  will-change: transform; backface-visibility: visible; -webkit-backface-visibility: visible;
-  user-select: none; -webkit-user-select: none; -webkit-user-drag: none; }
-#photo-modal { display: none; position: fixed; z-index: 50; inset: 0; background: rgba(0,0,0,.85); align-items: center; justify-content: center; }
-#photo-modal.show { display: flex; }
-#photo-modal img { max-width: 88vw; max-height: 80vh; border-radius: 12px; border: 3px solid rgba(255,182,193,.8); box-shadow: 0 0 30px rgba(0,0,0,.9); }
 </style>
 </head>
 <body>
@@ -55,52 +34,39 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #03040a; c
 <div id="hud">
   <div id="title">andy ♥ 陶陶<span id="subtitle"><br>OUR PARTICLE MEMORY BOOK</span></div>
   <div id="page-ind">第 1 / 5 页</div>
-  <div id="hint">点击屏幕左右两侧翻页 · 拖动旋转书本 · 双指缩放看整摞书</div>
+  <div id="hint">点击屏幕左右两侧翻页 · 拖动旋转书本</div>
 </div>
-<div id="loading">
-  <div class="load-box">
-    <div class="load-title">A book made of stardust</div>
-    <div class="load-text" id="status">正在准备照片…</div>
-    <div class="bar"><i id="progress"></i></div>
-    <div class="load-count" id="count">照片准备中 0 / 10</div>
-  </div>
-</div>
-<div id="photo-modal"><img id="photo-large" src="" alt=""></div>
 <script>
 window.onerror = function(msg, src, line) {
-  var s = document.getElementById('status');
-  if (s) s.textContent = 'JS错误: ' + msg + ' @' + line;
+  console.error(msg, line);
 };
 (() => {
 'use strict';
-const PAGE_W = 330, PAGE_H = 440;
-const TOTAL_PAGES = 5;          // 5 页纸常驻
-let pageIndex = 0;              // 0..4，当前跨页 = 照片 (2n+1, 2n+2)
+const PAGE_W = 340, PAGE_H = 460;
+const TOTAL_PAGES = 5;
+let pageIndex = 0;
 let busy = false;
 
 let sceneWebGL, sceneCSS, camera, rendererWebGL, rendererCSS, controls, particles;
-let bookGroup, leftTopPivot, rightTopPivot, leftStackGroup, rightStackGroup;
-let framePoints, frameBase = [], framePhase = [], frameAmp = [];
-let stackItems = [];            // 堆层 {group, paper, photo, photoBack, index}
+let cssBookGroup, webglBookGroup, leftPivot, rightPivot, leftStackGroup, rightStackGroup;
+let framePoints, textPoints, starPoints;
+let frameBase = [], framePhase = [], frameAmp = [];
+const stackItems = [];
 
 const $ = id => document.getElementById(id);
 const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
 const ease = t => t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2;
-const imgCache = new Map();
-function getImage(index) {
-  const url = `assets/images/${index}.webp`;
-  if (imgCache.has(url)) return imgCache.get(url);
-  const p = new Promise(resolve => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => resolve(null);
-    img.src = url;
-  });
-  imgCache.set(url, p);
-  return p;
-}
 
-// ---------- 白色粒子结构（书皮 V 形、书脊、页面边框，呼吸+浮动） ----------
+// 5 段文字
+const PAGES_TEXT = [
+  '我以前确实是一个很烂的人，但是遇到你之后，我发现我和以前不一样了。',
+  '我想给你我的全部，我想我的生活里都是你。我可以为了你改掉我的所有不好，我真的好喜欢你。',
+  '我不想和你分手，可能你会介意我的过去，以前的事我没法改变，我只能做好现在，在我们的感情里好好对你。',
+  '其实我很怕，我怕你突然不喜欢我了，我怕你有了别人，我怕我嘴笨说错话让你不开心。',
+  '有时候我也不知道我该怎么办，我只是想和你好好谈恋爱，我只是想让你是真的喜欢我，其他的我不奢求。'
+];
+
+// ---------- 白色粒子书结构 ----------
 function buildFrameParticles() {
   const pos = [], col = [];
   const jit = () => (Math.random()-.5)*9;
@@ -112,7 +78,6 @@ function buildFrameParticles() {
   };
   const W = PAGE_W+46, H = PAGE_H+46, D = -64;
   const vLift = 0.24;
-  // 书皮底板（两半 V 形）
   for (let x = -W/2; x <= W/2; x += 8) {
     const z = D + Math.abs(x)*vLift;
     push(x, -H/2, z, .7); push(x, H/2, z, .7);
@@ -120,23 +85,19 @@ function buildFrameParticles() {
   for (let y = -H/2; y <= H/2; y += 8) {
     push(-W/2, y, D+(W/2)*vLift, .7); push(W/2, y, D+(W/2)*vLift, .7);
   }
-  // 左右当前页边框
   for (const side of [-1,1]) {
     for (let x = 0; x <= PAGE_W; x += 8) {
       push(side*x, -PAGE_H/2, 1, .95); push(side*x, PAGE_H/2, 1, .95);
     }
     for (let y = -PAGE_H/2; y <= PAGE_H/2; y += 8) push(side*PAGE_W, y, 1, .95);
   }
-  // 页面堆厚度：右侧堆 4 层 + 左侧堆 4 层的页边（白色粒子，随层数错开）
   for (let k = 1; k <= 4; k++) {
     const z = -4 - k*5;
-    // 右侧堆页边
     for (let y = -PAGE_H/2; y <= PAGE_H/2; y += 10) {
       push(PAGE_W + k*2, y, z, .45);
       push(-PAGE_W - k*2, y, z, .45);
     }
   }
-  // 书脊凸起
   for (let x = -10; x <= 10; x += 3) {
     for (let y = -PAGE_H/2; y <= PAGE_H/2; y += 7) {
       push(x, y, -56 + 80*(1-(x/10)*(x/10))*.6, .98);
@@ -144,6 +105,64 @@ function buildFrameParticles() {
   }
   for (let y = -PAGE_H/2; y <= PAGE_H/2; y += 5) push(0, y, 10, 1);
   return { pos, col };
+}
+
+// ---------- 文字 → 粒子 ----------
+const MAX_TEXT_PARTICLES = 4200;
+let textTargets = [];        // 当前文字粒子目标（局部坐标，左页区域）
+let textCurrent = [];        // 当前显示位置
+function wrapText(text, maxChars) {
+  const lines = [];
+  let line = '';
+  for (const ch of text) {
+    line += ch;
+    if (line.length >= maxChars) { lines.push(line); line = ''; }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+function buildTextParticles(text) {
+  // 画布排版，采样像素成粒子
+  const CW = 560, CH = 760;
+  const canvas = document.createElement('canvas');
+  canvas.width = CW; canvas.height = CH;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0,0,CW,CH);
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 46px "PingFang SC", "Noto Sans SC", sans-serif';
+  ctx.textBaseline = 'middle';
+  const lines = wrapText(text, 8);
+  const lineH = 78;
+  const startY = CH/2 - (lines.length-1)*lineH/2;
+  lines.forEach((line, i) => {
+    ctx.fillText(line, CW/2, startY + i*lineH);
+  });
+  const data = ctx.getImageData(0,0,CW,CH).data;
+  const pts = [];
+  const step = 2;
+  for (let y = 0; y < CH; y += step) for (let x = 0; x < CW; x += step) {
+    const i = (y*CW+x)*4;
+    // 只取白色文字笔画（黑底不算）
+    if (data[i] > 150 && data[i+1] > 150 && data[i+2] > 150) {
+      // 映射到左页区域（x ∈ [-PAGE_W, 0]）
+      const px = (x/CW - .5) * (PAGE_W - 30);
+      const py = (.5 - y/CH) * (PAGE_H - 30);
+      pts.push(px - PAGE_W/2, py, (Math.random()-.5)*3);
+    }
+  }
+  if (pts.length/3 > MAX_TEXT_PARTICLES) {
+    // 均匀抽稀
+    const keep = MAX_TEXT_PARTICLES;
+    const total = pts.length/3;
+    const ratio = keep/total;
+    const picked = [];
+    for (let i = 0; i < total; i++) {
+      if (Math.random() < ratio) picked.push(pts[i*3], pts[i*3+1], pts[i*3+2]);
+    }
+    return picked;
+  }
+  return pts;
 }
 
 function makeDiv(className, w, h) {
@@ -158,101 +177,105 @@ function cssObject(el, x, y, z) {
   o.position.set(x, y, z);
   return o;
 }
-// 创建一张纸页（pivot 在书脊，内容偏移到页面位置；照片就是照片，不带纸底）
-function makeSheet(withPaper) {
-  const group = new THREE.Group();      // 绕书脊旋转的轴，位于 x=0
-  group.rotation.order = 'YXZ';
-  const content = new THREE.Group();
-  group.add(content);
-  let paper = null;
-  if (withPaper) {
-    paper = cssObject(makeDiv('book-paper', PAGE_W, PAGE_H), 0, 0, 0);
-    content.add(paper);
-  }
-  const phW = PAGE_W-14, phH = PAGE_H-14;
-  const photo = cssObject(makeDiv('book-photo', phW, phH), 0, 4, 12);
-  const photoBack = cssObject(makeDiv('book-photo', phW, phH), 0, 4, 12);
-  photoBack.rotation.y = Math.PI;
-  content.add(photo, photoBack);
-  return { group, content, paper, photo, photoBack };
-}
-// 堆层：只有薄纸板表示书页厚度
-function makeStackBoard() {
+function makeStackBoard(right) {
   const group = new THREE.Group();
-  const paper = cssObject(makeDiv('book-paper', PAGE_W, PAGE_H), 0, 0, 0);
+  const paper = cssObject(makeDiv(right ? 'book-paper right' : 'book-paper', PAGE_W, PAGE_H), 0, 0, 0);
   group.add(paper);
   return { group, paper };
 }
-function setSheetPhoto(sheet, index) {
-  const url = `assets/images/${index}.webp`;
-  sheet.photo.element.style.backgroundImage = `url('${url}')`;
-  sheet.photoBack.element.style.backgroundImage = `url('${url}')`;
-  sheet.photo.element.dataset.photo = index;
-}
 
+// ---------- 初始化 ----------
 function init() {
   camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 1, 14000);
-  camera.position.set(0, 120, 2150);
+  camera.position.set(0, 130, 2150);
   camera.lookAt(0, 0, 0);
 
   sceneWebGL = new THREE.Scene();
+  // 星空
   const n = innerWidth <= 768 ? 1200 : 2000;
-  const geo = new THREE.BufferGeometry();
-  const pos = new Float32Array(n*3);
-  for (let i = 0; i < n*3; i++) pos[i] = (Math.random()-.5)*5200;
-  geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
-  const cv = document.createElement('canvas'); cv.width = 64; cv.height = 64;
-  const c2 = cv.getContext('2d');
-  const g = c2.createRadialGradient(32,32,0,32,32,32);
-  g.addColorStop(0,'rgba(255,255,255,1)');
-  g.addColorStop(.25,'rgba(255,182,193,1)');
-  g.addColorStop(1,'rgba(0,0,0,0)');
-  c2.fillStyle = g; c2.fillRect(0,0,64,64);
-  particles = new THREE.Points(geo, new THREE.PointsMaterial({
-    size: 40, map: new THREE.CanvasTexture(cv), transparent: true, opacity: .95,
+  const sGeo = new THREE.BufferGeometry();
+  const sp = new Float32Array(n*3), sc = new Float32Array(n*3);
+  for (let i = 0; i < n; i++) {
+    const r = 2600 + Math.random()*3600;
+    const t = Math.random()*Math.PI*2, p = Math.acos(2*Math.random()-1);
+    sp[i*3] = r*Math.sin(p)*Math.cos(t);
+    sp[i*3+1] = r*Math.sin(p)*Math.sin(t);
+    sp[i*3+2] = r*Math.cos(p);
+    const b = .25+Math.random()*.75;
+    sc[i*3]=b; sc[i*3+1]=b; sc[i*3+2]=b;
+  }
+  sGeo.setAttribute('position', new THREE.BufferAttribute(sp,3));
+  sGeo.setAttribute('color', new THREE.BufferAttribute(sc,3));
+  starPoints = new THREE.Points(sGeo, new THREE.PointsMaterial({
+    size: 2.4, vertexColors: true, transparent: true, opacity: .9,
     blending: THREE.AdditiveBlending, depthWrite: false }));
-  sceneWebGL.add(particles);
-  rendererWebGL = new THREE.WebGLRenderer({ alpha: true, antialias: window.devicePixelRatio < 2 });
-  rendererWebGL.setSize(innerWidth, innerHeight);
-  $('webgl').appendChild(rendererWebGL.domElement);
+  sceneWebGL.add(starPoints);
 
-  // 白色粒子结构
+  // 粒子书结构（挂在 WebGL 书本组，随书本缩放姿态）
   const fp = buildFrameParticles();
   frameBase = fp.pos;
   const fGeo = new THREE.BufferGeometry();
-  fGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(fp.pos),3));
+  const fInit = new Float32Array(fp.pos.length);
+  for (let i = 0; i < fp.pos.length; i++) {
+    fInit[i] = fp.pos[i] + (Math.random()-.5)*2200;
+  }
+  fGeo.setAttribute('position', new THREE.BufferAttribute(fInit,3));
   fGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(fp.col),3));
   framePoints = new THREE.Points(fGeo, new THREE.PointsMaterial({
     size: 4.2, vertexColors: true, transparent: true, opacity: .9,
     blending: THREE.AdditiveBlending, depthWrite: false }));
-  sceneWebGL.add(framePoints);
 
-  // 书本 CSS3D
+  // 文字粒子（左页）
+  const tGeo = new THREE.BufferGeometry();
+  const tPos = new Float32Array(MAX_TEXT_PARTICLES*3);
+  const tCol = new Float32Array(MAX_TEXT_PARTICLES*3);
+  for (let i = 0; i < MAX_TEXT_PARTICLES*3; i += 3) {
+    tPos[i] = (Math.random()-.5)*3000;
+    tPos[i+1] = (Math.random()-.5)*3000;
+    tPos[i+2] = (Math.random()-.5)*2000;
+  }
+  for (let i = 0; i < MAX_TEXT_PARTICLES; i++) tCol[i*3] = tCol[i*3+1] = tCol[i*3+2] = 1;
+  tGeo.setAttribute('position', new THREE.BufferAttribute(tPos,3));
+  tGeo.setAttribute('color', new THREE.BufferAttribute(tCol,3));
+  textPoints = new THREE.Points(tGeo, new THREE.PointsMaterial({
+    size: 4.6, vertexColors: true, transparent: true, opacity: 1,
+    blending: THREE.AdditiveBlending, depthWrite: false }));
+
+  // WebGL 书本组（粒子挂这里，与 CSS3D 书本保持相同变换）
+  webglBookGroup = new THREE.Group();
+  webglBookGroup.rotation.x = -0.12;
+  webglBookGroup.add(framePoints, textPoints);
+  sceneWebGL.add(webglBookGroup);
+
+  rendererWebGL = new THREE.WebGLRenderer({ alpha: true, antialias: window.devicePixelRatio < 2 });
+  rendererWebGL.setSize(innerWidth, innerHeight);
+  $('webgl').appendChild(rendererWebGL.domElement);
+
+  // 书本 CSS3D（纸板堆）
   sceneCSS = new THREE.Scene();
-  bookGroup = new THREE.Group();
-  bookGroup.rotation.x = -0.12;
-  sceneCSS.add(bookGroup);
+  cssBookGroup = new THREE.Group();
+  cssBookGroup.rotation.x = -0.12;
+  sceneCSS.add(cssBookGroup);
 
-  // 当前左右页（pivot 在书脊，照片无纸底）
-  leftTopPivot = makeSheet(false);
-  rightTopPivot = makeSheet(false);
-  leftTopPivot.content.position.set(-PAGE_W/2, 0, 0);
-  rightTopPivot.content.position.set(PAGE_W/2, 0, 0);
-  bookGroup.add(leftTopPivot.group, rightTopPivot.group);
+  leftPivot = new THREE.Group();
+  rightPivot = new THREE.Group();
+  leftPivot.rotation.order = 'YXZ';
+  rightPivot.rotation.order = 'YXZ';
+  cssBookGroup.add(leftPivot, rightPivot);
 
-  // 左右堆（常驻的其余页，薄纸板）
   leftStackGroup = new THREE.Group();
   rightStackGroup = new THREE.Group();
-  bookGroup.add(leftStackGroup, rightStackGroup);
+  cssBookGroup.add(leftStackGroup, rightStackGroup);
   for (let k = 0; k < TOTAL_PAGES-1; k++) {
-    const sL = makeStackBoard();
+    const sL = makeStackBoard(false);
     sL.group.position.set(-PAGE_W/2 - (k+1)*3, 0, -6 - k*6);
     leftStackGroup.add(sL.group);
-    const sR = makeStackBoard();
+    const sR = makeStackBoard(true);
     sR.group.position.set(PAGE_W/2 + (k+1)*3, 0, -6 - k*6);
     rightStackGroup.add(sR.group);
     stackItems.push({ left: sL, right: sR, k });
   }
+  layoutStacks();
 
   rendererCSS = new THREE.CSS3DRenderer();
   rendererCSS.setSize(innerWidth, innerHeight);
@@ -284,20 +307,17 @@ function fitBook() {
   const worldH = 2*dist*Math.tan(fov/2);
   const worldW = worldH * camera.aspect;
   const s = Math.min(worldW/(PAGE_W*2+180), worldH/(PAGE_H+180)) * 0.92;
-  bookGroup.scale.set(s, s, s);
+  cssBookGroup.scale.set(s, s, s);
+  webglBookGroup.scale.set(s, s, s);
 }
-
-// 更新照片归属（只更新当前左右页照片，堆层是纯纸板）
-function layoutPhotos() {
-  setSheetPhoto(leftTopPivot, pageIndex*2+1);
-  setSheetPhoto(rightTopPivot, pageIndex*2+2);
-  // 堆层数：左堆 pageIndex 层、右堆 TOTAL_PAGES-1-pageIndex 层
+function layoutStacks() {
   stackItems.forEach((item, k) => {
     item.left.group.visible = k < pageIndex;
     item.right.group.visible = k < (TOTAL_PAGES-1-pageIndex);
   });
 }
 
+// ---------- 动画工具 ----------
 function animateValue(duration, onUpdate, onDone) {
   const t0 = performance.now();
   const timer = setInterval(() => {
@@ -306,54 +326,98 @@ function animateValue(duration, onUpdate, onDone) {
     if (p >= 1) { clearInterval(timer); if (onDone) onDone(); }
   }, 16);
 }
+
+// ---------- 文字粒子动画 ----------
+function scatterOffsets() {
+  // 每个粒子一个随机散开方向
+  const arr = [];
+  for (let i = 0; i < MAX_TEXT_PARTICLES; i++) {
+    const a = Math.random()*Math.PI*2;
+    const r = 700 + Math.random()*1400;
+    arr.push(Math.cos(a)*r, Math.sin(a)*r*(.6+Math.random()*.6), (Math.random()-.5)*900);
+  }
+  return arr;
+}
+async function scatterText() {
+  // 当前文字散开
+  const tPos = textPoints.geometry.attributes.position;
+  const from = textCurrent.slice();
+  const scatter = scatterOffsets();
+  await new Promise(res => animateValue(380, p => {
+    for (let i = 0; i < MAX_TEXT_PARTICLES; i++) {
+      const k = i*3;
+      if (i*3 < from.length) {
+        tPos.array[k] = from[k] + scatter[k]*p;
+        tPos.array[k+1] = from[k+1] + scatter[k+1]*p;
+        tPos.array[k+2] = from[k+2] + scatter[k+2]*p;
+      } else {
+        tPos.array[k] += (Math.random()-.5)*30;
+        tPos.array[k+1] += (Math.random()-.5)*30;
+      }
+    }
+    tPos.needsUpdate = true;
+  }, res));
+}
+async function gatherText(text) {
+  // 新文字从四面八方汇聚
+  const targets = buildTextParticles(text);
+  const tPos = textPoints.geometry.attributes.position;
+  const scatter = scatterOffsets();
+  const n3 = targets.length;
+  await new Promise(res => animateValue(760, p => {
+    for (let i = 0; i < MAX_TEXT_PARTICLES; i++) {
+      const k = i*3;
+      if (k < n3) {
+        tPos.array[k] = scatter[k]*(1-p) + targets[k]*p;
+        tPos.array[k+1] = scatter[k+1]*(1-p) + targets[k+1]*p;
+        tPos.array[k+2] = scatter[k+2]*(1-p) + targets[k+2]*p;
+      } else {
+        // 多余粒子飞远
+        tPos.array[k] *= .96;
+        tPos.array[k+1] *= .96;
+        tPos.array[k+2] *= .96;
+      }
+    }
+    tPos.needsUpdate = true;
+  }, res));
+  // 记录当前显示位置（把 targets 写满到容量）
+  textCurrent = new Array(MAX_TEXT_PARTICLES*3).fill(0);
+  for (let i = 0; i < n3; i++) textCurrent[i] = targets[i];
+  for (let i = n3; i < MAX_TEXT_PARTICLES*3; i += 3) {
+    textCurrent[i] = (Math.random()-.5)*4000;
+    textCurrent[i+1] = (Math.random()-.5)*4000;
+    textCurrent[i+2] = (Math.random()-.5)*2000;
+  }
+}
+
+// ---------- 翻页 ----------
 async function goToPage(newIndex) {
   if (busy) return;
   newIndex = clamp(newIndex, 0, TOTAL_PAGES-1);
   if (newIndex === pageIndex) return;
   busy = true;
   const forward = newIndex > pageIndex;
-  const safety = setTimeout(() => { busy = false; leftTopPivot.group.rotation.y = 0; rightTopPivot.group.rotation.y = 0; }, 3000);
-  const leftNo = newIndex*2+1, rightNo = newIndex*2+2;
-  await Promise.all([getImage(leftNo), getImage(rightNo)]);
-  if (forward) {
-    // 右页带照片从右往左翻越，翻越中露出新左页
-    setSheetPhoto(rightTopPivot, rightNo);
-    let swapped = false;
-    await new Promise(res => animateValue(650, p => {
-      rightTopPivot.group.rotation.y = -Math.PI*p;
-      if (p >= .5 && !swapped) {
-        swapped = true;
-        setSheetPhoto(leftTopPivot, leftNo);
-        layoutPhotos();
-      }
-    }, res));
-    rightTopPivot.group.rotation.y = 0;
-    setSheetPhoto(rightTopPivot, rightNo);
-  } else {
-    setSheetPhoto(leftTopPivot, leftNo);
-    let swapped = false;
-    await new Promise(res => animateValue(650, p => {
-      leftTopPivot.group.rotation.y = Math.PI*p;
-      if (p >= .5 && !swapped) {
-        swapped = true;
-        setSheetPhoto(rightTopPivot, rightNo);
-        layoutPhotos();
-      }
-    }, res));
-    leftTopPivot.group.rotation.y = 0;
-    setSheetPhoto(leftTopPivot, leftNo);
-  }
-  clearTimeout(safety);
+  const safety = setTimeout(() => { busy = false; leftPivot.rotation.y = 0; rightPivot.rotation.y = 0; }, 4000);
+  // 旧文字散开
+  await scatterText();
+  // 翻页动画：右纸板绕书脊翻越（或左纸板翻回）
+  await new Promise(res => animateValue(600, p => {
+    if (forward) rightPivot.rotation.y = -Math.PI*p;
+    else leftPivot.rotation.y = Math.PI*p;
+  }, res));
+  if (forward) rightPivot.rotation.y = 0;
+  else leftPivot.rotation.y = 0;
   pageIndex = newIndex;
-  layoutPhotos();
   $('page-ind').textContent = `第 ${newIndex+1} / ${TOTAL_PAGES} 页`;
+  layoutStacks();
+  // 新文字从四面八方汇聚
+  await gatherText(PAGES_TEXT[newIndex]);
+  clearTimeout(safety);
   busy = false;
 }
 
-function animate() {
-  requestAnimationFrame(animate);
+function renderFrame() {
   const t = performance.now()*0.001;
-  // 粒子浮动
   const fa = framePoints.geometry.attributes.position;
   for (let i = 0; i < framePhase.length; i++) {
     const k = i*3;
@@ -362,57 +426,45 @@ function animate() {
     fa.array[k+2] = frameBase[k+2] + Math.sin(t*.8+framePhase[i]*1.7)*frameAmp[i]*.25;
   }
   fa.needsUpdate = true;
-  // 呼吸发光
   framePoints.material.opacity = .76 + Math.sin(t*1.4)*.24;
-  if (particles) {
-    particles.rotation.y += .0008;
-    particles.rotation.x += .0004;
-  }
+  starPoints.rotation.y += .0004;
   controls.update();
   rendererWebGL.render(sceneWebGL, camera);
   rendererCSS.render(sceneCSS, camera);
 }
-
-async function preloadPhotos() {
-  const TOTAL = 10;
-  let done = 0, cursor = 1;
-  const CONCURRENCY = 5;
-  const finish = () => {
-    done++;
-    $('progress').style.width = Math.round(done/TOTAL*100) + '%';
-    $('count').textContent = `照片准备中 ${done} / ${TOTAL}`;
-    if (done >= TOTAL) {
-      $('status').textContent = '照片准备完成';
-      setTimeout(() => $('loading').classList.add('hidden'), 150);
-    }
-  };
-  const loadNext = () => {
-    if (cursor > TOTAL) return;
-    const index = cursor++;
-    getImage(index).then(() => { finish(); loadNext(); });
-  };
-  for (let i = 0; i < CONCURRENCY; i++) loadNext();
+function animate() {
+  function loop() {
+    requestAnimationFrame(loop);
+    renderFrame();
+  }
+  requestAnimationFrame(loop);
+  // 后台节流时兜底渲染
+  setInterval(renderFrame, 1000);
 }
 
-init();
-preloadPhotos();
-layoutPhotos();
+// ---------- 启动 ----------
+async function start() {
+  init();
+  // 开场：书结构粒子从远处汇聚
+  const fa = framePoints.geometry.attributes.position;
+  const from = fa.array.slice();
+  await new Promise(res => animateValue(1100, p => {
+    for (let i = 0; i < from.length; i++) {
+      fa.array[i] = from[i]*(1-p) + frameBase[i]*p;
+    }
+    fa.needsUpdate = true;
+  }, res));
+  // 第一页文字汇聚
+  await gatherText(PAGES_TEXT[0]);
+}
 
 window.addEventListener('pointerdown', (e) => {
-  if (e.target && e.target.closest && e.target.closest('#loading')) return;
-  if (e.target.closest && e.target.closest('#photo-modal')) return;
   if (busy) return;
   if (e.clientX > innerWidth*0.55) goToPage(pageIndex+1);
   else if (e.clientX < innerWidth*0.45) goToPage(pageIndex-1);
 });
-document.addEventListener('pointerup', (e) => {
-  const el = e.target.closest && e.target.closest('.book-photo');
-  if (el && el.dataset.photo) {
-    $('photo-large').src = `assets/images/${el.dataset.photo}.webp`;
-    $('photo-modal').classList.add('show');
-  }
-});
-$('photo-modal').addEventListener('click', () => $('photo-modal').classList.remove('show'));
+
+start();
 })();
 </script>
 </body>
