@@ -385,7 +385,10 @@ function init() {
     decorPoints = new THREE.Points(decorGeo, new THREE.PointsMaterial({
         size: 9, map: texture, transparent: true, opacity: .95,
         blending: THREE.AdditiveBlending, depthWrite: false }));
-    sceneWebGL.add(decorPoints);
+    const decorGroup = new THREE.Group();
+    decorGroup.position.set(0, 650, 8000);
+    decorGroup.add(decorPoints);
+    sceneWebGL.add(decorGroup);
 
     rendererWebGL = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     rendererWebGL.setSize( window.innerWidth, window.innerHeight );
@@ -400,7 +403,7 @@ function init() {
     letterInnerEl.style.cssText = 'width:100%;height:auto;color:#fff;font:19px/2.2 "ZCOOL KuaiLe","PingFang SC",sans-serif;text-align:left;letter-spacing:1px;white-space:pre-wrap;overflow-wrap:break-word;text-shadow:0 0 8px rgba(255,255,255,.5);transition:opacity .5s ease,transform .5s ease;';
     letterTextEl.appendChild(letterInnerEl);
     letterObj = new THREE.CSS3DObject(letterTextEl);
-    letterObj.position.set(0, 360, 60);
+    letterObj.position.set(0, 0, 8020);
     letterObj.visible = false;
     sceneCSS.add(letterObj);
 
@@ -659,14 +662,14 @@ function moveCameraToText() {
         const timer = setInterval(() => {
             const p = Math.min(1, (performance.now() - t0) / dur);
             const e = p < 0.5 ? 4*p*p*p : 1 - Math.pow(-2*p+2, 3)/2;
-            camera.position.set(sx + (0 - sx) * e, sy + (0 - sy) * e, sz + (2800 - sz) * e);
-            controls.target.set(tx + (0 - tx) * e, ty + (0 - ty) * e, tz + (0 - tz) * e);
+            camera.position.set(sx + (0 - sx) * e, sy + (0 - sy) * e, sz + (9600 - sz) * e);
+            controls.target.set(tx + (0 - tx) * e, ty + (0 - ty) * e, tz + (8000 - tz) * e);
             camera.lookAt(controls.target);
             if (p >= 1) { clearInterval(timer); camera.lookAt(controls.target); res(); }
         }, 16);
     });
 }
-async function buildStarPattern() {
+function buildStarPattern() {
     const pts = [];
     const R = 400, r = 160;
     for (let i = 0; i < 10; i++) {
@@ -769,7 +772,7 @@ function showDecor(patternArr) {
         }, 16);
     });
 }
-function typeMessage(text) {
+async function typeMessage(text) {
     letterInnerEl.textContent = '';
     for (let i = 0; i < text.length; i++) {
         letterInnerEl.textContent = text.slice(0, i + 1);
