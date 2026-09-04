@@ -28,9 +28,6 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #03040a; c
   border-radius: 24px; background: rgba(255,255,255,.06); box-shadow: 0 16px 50px rgba(0,0,0,.7); }
 .load-title { font: 700 30px Caveat, cursive; color: #fff; letter-spacing: 2px; margin-bottom: 14px; text-shadow: 0 0 20px rgba(255,255,255,.8); }
 .load-text { font-size: 15px; color: #dfe4ff; }
-.bar { height: 7px; margin: 18px 0 8px; border-radius: 8px; background: rgba(255,255,255,.15); overflow: hidden; }
-.bar i { display: block; width: 0; height: 100%; background: linear-gradient(90deg,#e8ecff,#ffffff); box-shadow: 0 0 14px #fff; border-radius: inherit; transition: width .25s; }
-.load-count { font-size: 12px; color: #aab2d8; }
 </style>
 </head>
 <body>
@@ -43,45 +40,34 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #03040a; c
 <div id="loading">
   <div class="load-box">
     <div class="load-title">A book made of stardust</div>
-    <div class="load-text" id="status">正在采集照片粒子…</div>
-    <div class="bar"><i id="progress"></i></div>
-    <div class="load-count" id="count">照片准备中 0 / 2</div>
+    <div class="load-text" id="status">正在准备照片…</div>
   </div>
 </div>
 <script>
-window.onerror = function(msg, src, line, col, err) {
+window.onerror = function(msg, src, line) {
   var s = document.getElementById('status');
   if (s) s.textContent = 'JS错误: ' + msg + ' @' + line;
-  console.error(msg, err);
 };
 window.addEventListener('unhandledrejection', function(e) {
   var s = document.getElementById('status');
   if (s) s.textContent = '异步错误: ' + e.reason;
-  console.error(e.reason);
 });
 (() => {
 'use strict';
 const PAGE_W = 470, PAGE_H = 700;          // 单页尺寸
-const COLS = 62, ROWS = 92;                // 照片采样网格
-const MAX_PARTICLES_PER_PAGE = 2800;       // 每页粒子上限
 const TOTAL_PAIRS = 60;                    // 60 页 = 120 张照片
 let pageIndex = 0;                          // 0..59，显示照片 (2n+1, 2n+2)
 let busy = false;
 
-let renderer, scene, camera, controls, bookGroup, starPoints;
-let leftPoints, rightPoints, titlePoints, framePoints;
-let leftAttr, rightAttr;
-const leftFrom = { pos: [], col: [] }, leftTo = { pos: [], col: [] };
-const rightFrom = { pos: [], col: [] }, rightTo = { pos: [], col: [] };
-let animState = null;
-const imgCache = new Map();
+let renderer, scene, camera, controls, bookGroup, starPoints, framePoints, titlePoints;
+let leftMesh, rightMesh, leftMat, rightMat, tiltGroup;
 
 const $ = id => document.getElementById(id);
 const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
 const ease = t => t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2;
 const lerp = (a,b,t) => a + (b-a)*t;
+const imgCache = new Map();
 
-// ---------- 照片加载与粒子采样 ----------
 function getImage(index) {
   const url = `assets/images/${index}.webp`;
   if (imgCache.has(url)) return imgCache.get(url);
@@ -94,53 +80,22 @@ function getImage(index) {
   imgCache.set(url, p);
   return p;
 }
-function samplePhoto(img, side, outPos, outCol) {
-  // side: 1 = 右页, -1 = 左页
-  outPos.length = 0; outCol.length = 0;
-  if (!img) {
-    // 失败时铺一层稀疏星光占位
-    for (let i = 0; i < 500; i++) {
-      outPos.push(side*(PAGE_W/2 + Math.random()*PAGE_W*0.5), (Math.random()-.5)*PAGE_H, (Math.random()-.5)*6);
-      outCol.push(.8,.8,.9);
-    }
-    return;
+
+// 照片 → 页面比例纹理（cover 裁切，不变形）
+function makePageTexture(img) {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = Math.round(512 * PAGE_H / PAGE_W);
+  const ctx = c.getContext('2d');
+  if (img) {
+    const s = Math.max(c.width / img.naturalWidth, c.height / img.naturalHeight);
+    const dw = img.naturalWidth * s, dh = img.naturalHeight * s;
+    ctx.drawImage(img, (c.width - dw) / 2, (c.height - dh) / 2, dw, dh);
+  } else {
+    ctx.fillStyle = '#1a1630'; ctx.fillRect(0, 0, c.width, c.height);
   }
-  const canvas = document.createElement('canvas');
-  canvas.width = COLS; canvas.height = ROWS;
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  const scale = Math.max(COLS/img.naturalWidth, ROWS/img.naturalHeight);
-  const dw = img.naturalWidth*scale, dh = img.naturalHeight*scale;
-  ctx.drawImage(img, (COLS-dw)/2, (ROWS-dh)/2, dw, dh);
-  const data = ctx.getImageData(0,0,COLS,ROWS).data;
-  const cells = [];
-  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
-    const i = (y*COLS+x)*4;
-    const r = data[i], g = data[i+1], b = data[i+2], a = data[i+3];
-    if (a < 110) continue;
-    const lum = (.299*r + .587*g + .114*b)/255;
-    let prob = 0;
-    if (lum >= .75) prob = 1;
-    else if (lum >= .5) prob = .95;
-    else if (lum >= .3) prob = .75;
-    else if (lum >= .15) prob = .4;
-    else prob = .1;
-    if (Math.random() > prob) continue;
-    cells.push({ x, y, r, g, b, lum });
-  }
-  // 上限截断：按亮度优先保留
-  if (cells.length > MAX_PARTICLES_PER_PAGE) {
-    cells.sort((A,B) => B.lum - A.lum);
-    cells.length = MAX_PARTICLES_PER_PAGE;
-  }
-  for (const c of cells) {
-    const u = (c.x + .5)/COLS, v = (c.y + .5)/ROWS;
-    // 页面局部坐标：右页 x∈[0,PAGE_W]，左页 x∈[-PAGE_W,0]
-    const px = side * u * PAGE_W;
-    const py = (0.5 - v) * PAGE_H;
-    outPos.push(px, py + (Math.random()-.5)*2, (Math.random()-.5)*4);
-    const br = .28 + c.lum*1.35;
-    outCol.push(c.r/255*br, c.g/255*br, c.b/255*br);
-  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.encoding = THREE.sRGBEncoding;
+  return tex;
 }
 
 // ---------- 书本结构粒子（白色） ----------
@@ -157,22 +112,21 @@ function buildFrameParticles() {
     if (Math.random() < .28) push(x,y,D,.16);
   // 左右页边框（正面）
   for (const side of [-1,1]) {
-    for (let x = 0; x <= PAGE_W; x += 13) { push(side*(PAGE_W/2+x), -PAGE_H/2, 0, .95); push(side*(PAGE_W/2+x), PAGE_H/2, 0, .95); }
-    for (let y = -PAGE_H/2; y <= PAGE_H/2; y += 13) { push(side*PAGE_W/2, y, 0, .95); push(side*(PAGE_W/2+PAGE_W), y, 0, .95); }
+    for (let x = 0; x <= PAGE_W; x += 13) { push(side*x, -PAGE_H/2, 1, .95); push(side*x, PAGE_H/2, 1, .95); }
+    for (let y = -PAGE_H/2; y <= PAGE_H/2; y += 13) { push(side*PAGE_W, y, 1, .95); }
     // 页面厚度层
     const layers = [[-12,.58],[-26,.42],[-40,.28],[-52,.16]];
     for (const [z, c] of layers)
-      for (let x = 0; x <= PAGE_W; x += 17) { push(side*(PAGE_W/2+x), -PAGE_H/2, z, c); push(side*(PAGE_W/2+x), PAGE_H/2, z, c); }
+      for (let x = 0; x <= PAGE_W; x += 17) { push(side*x, -PAGE_H/2, z, c); push(side*x, PAGE_H/2, z, c); }
   }
-  // 书脊：中缝隆起，多列弧线
+  // 书脊：中缝凸起
   for (let x = -10; x <= 10; x += 4) {
-    const lift = 26 * (1 - (x/10)*(x/10));  // 中间最高
     for (let y = -PAGE_H/2; y <= PAGE_H/2; y += 10) {
-      push(x, y, D + 78*(1-(x/10)*(x/10))*.55, .98);
+      push(x, y, -52 + 78*(1-(x/10)*(x/10))*.55, .98);
     }
   }
   // 书脊顶部高光列
-  for (let y = -PAGE_H/2; y <= PAGE_H/2; y += 7) push(0, y, 8, 1);
+  for (let y = -PAGE_H/2; y <= PAGE_H/2; y += 7) push(0, y, 9, 1);
   return { pos, col };
 }
 // ---------- 标题粒子（andy ♥ 陶陶） ----------
@@ -224,6 +178,10 @@ function init() {
   bookGroup = new THREE.Group();
   bookGroup.rotation.x = 0.46;
   scene.add(bookGroup);
+  // 翻页倾斜组（照片层）
+  tiltGroup = new THREE.Group();
+  bookGroup.add(tiltGroup);
+
   // 星空
   const starGeo = new THREE.BufferGeometry();
   const sp = new Float32Array(2200*3), sc = new Float32Array(2200*3);
@@ -243,7 +201,7 @@ function init() {
     blending: THREE.AdditiveBlending, depthWrite: false }));
   scene.add(starPoints);
 
-  // 结构粒子（白色，随书本一起）
+  // 结构粒子
   const fp = buildFrameParticles();
   const fGeo = new THREE.BufferGeometry();
   fGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(fp.pos),3));
@@ -253,23 +211,16 @@ function init() {
     blending: THREE.AdditiveBlending, depthWrite: false }));
   bookGroup.add(framePoints);
 
-  // 左右照片粒子
-  const mkPhotoPoints = () => {
-    const geo = new THREE.BufferGeometry();
-    const pos = new Float32Array(MAX_PARTICLES_PER_PAGE*3);
-    const col = new Float32Array(MAX_PARTICLES_PER_PAGE*3);
-    geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
-    geo.setAttribute('color', new THREE.BufferAttribute(col,3));
-    const pts = new THREE.Points(geo, new THREE.PointsMaterial({
-      size: 5.2, vertexColors: true, transparent: true, opacity: .92,
-      blending: THREE.AdditiveBlending, depthWrite: false }));
-    bookGroup.add(pts);
-    return pts;
-  };
-  leftPoints = mkPhotoPoints();
-  rightPoints = mkPhotoPoints();
-  leftAttr = leftPoints.geometry.attributes.position;
-  rightAttr = rightPoints.geometry.attributes.position;
+  // 左右照片平面（清晰贴图）
+  const pageGeo = new THREE.PlaneGeometry(PAGE_W, PAGE_H);
+  leftMat = new THREE.MeshBasicMaterial({ map: null, transparent: true, opacity: 1, depthWrite: false });
+  rightMat = new THREE.MeshBasicMaterial({ map: null, transparent: true, opacity: 1, depthWrite: false });
+  leftMesh = new THREE.Mesh(pageGeo, leftMat);
+  leftMesh.position.set(-PAGE_W/2, 0, -1);
+  rightMesh = new THREE.Mesh(pageGeo, rightMat);
+  rightMesh.position.set(PAGE_W/2, 0, -1);
+  tiltGroup.add(leftMesh);
+  tiltGroup.add(rightMesh);
 
   // 标题粒子
   const tp = buildTitleParticles();
@@ -300,19 +251,16 @@ function fitBook() {
   bookGroup.scale.set(s, s, s);
 }
 
-// ---------- 翻页 ----------
-function applyPage(pts, attr, posArr, colArr, n) {
-  if (n > posArr.length) {
-    // 补齐
-    while (posArr.length < n) { posArr.push(0,0,0); colArr.push(0,0,0); }
+// ---------- 翻页（淡入淡出 + 轻微倾翻） ----------
+function animateValue(duration, onUpdate, onDone) {
+  const t0 = performance.now();
+  function frame(now) {
+    const p = clamp((now - t0) / duration, 0, 1);
+    onUpdate(ease(p));
+    if (p < 1) requestAnimationFrame(frame);
+    else if (onDone) onDone();
   }
-  attr.array.set(posArr.slice(0, n*3));
-  const colorAttr = pts.geometry.attributes.color;
-  colorAttr.array.set(colArr.slice(0, n*3));
-  attr.needsUpdate = true;
-  colorAttr.needsUpdate = true;
-  // 只绘制实际写入的粒子，避免 (0,0,0) 幽灵点堆积在原点
-  pts.geometry.setDrawRange(0, n);
+  requestAnimationFrame(frame);
 }
 async function goToPage(newIndex) {
   if (busy) return;
@@ -321,76 +269,50 @@ async function goToPage(newIndex) {
   busy = true;
   const leftNo = newIndex*2+1, rightNo = newIndex*2+2;
   const [imgL, imgR] = await Promise.all([getImage(leftNo), getImage(rightNo)]);
-  samplePhoto(imgL, -1, leftTo.pos, leftTo.col);
-  samplePhoto(imgR, 1, rightTo.pos, rightTo.col);
-  // 保存当前为目标来源
-  leftFrom.pos = leftAttr.array.slice(0, leftTo.pos.length);
-  leftFrom.col = leftPoints.geometry.attributes.color.array.slice(0, leftTo.col.length);
-  rightFrom.pos = rightAttr.array.slice(0, rightTo.pos.length);
-  rightFrom.col = rightPoints.geometry.attributes.color.array.slice(0, rightTo.col.length);
-  // 补齐缺失（从零粒子开始）
-  while (leftFrom.pos.length < leftTo.pos.length) { leftFrom.pos.push(0,0,0); leftFrom.col.push(0,0,0); }
-  while (rightFrom.pos.length < rightTo.pos.length) { rightFrom.pos.push(0,0,0); rightFrom.col.push(0,0,0); }
-  // 散开随机偏移
-  animState = { t: 0, duration: 900 };
-  animState.leftMid = leftTo.pos.map((v,i) => v + (Math.random()-.5)*900*(i%3===2?200:700));
-  animState.rightMid = rightTo.pos.map((v,i) => v + (Math.random()-.5)*900*(i%3===2?200:700));
-  animState.pageTarget = newIndex;
+  const texL = makePageTexture(imgL), texR = makePageTexture(imgR);
+  // 淡出 + 倾翻
+  await new Promise(res => animateValue(260, p => {
+    leftMat.opacity = 1 - p;
+    rightMat.opacity = 1 - p;
+    tiltGroup.rotation.x = p * 0.12;
+  }, res));
+  // 换纹理
+  const oldL = leftMat.map, oldR = rightMat.map;
+  leftMat.map = texL; leftMat.needsUpdate = true;
+  rightMat.map = texR; rightMat.needsUpdate = true;
   pageIndex = newIndex;
   $('page-ind').textContent = `第 ${newIndex+1} / ${TOTAL_PAIRS} 页`;
-}
-function stepAnim(dt) {
-  if (!animState) return;
-  animState.t += dt;
-  const p = clamp(animState.t / animState.duration, 0, 1);
-  const e1 = ease(clamp(p/.5, 0, 1));       // 散开
-  const e2 = ease(clamp((p-.5)/.5, 0, 1));  // 收拢
-  const n = leftTo.pos.length;
-  const lp = leftAttr.array, lc = leftPoints.geometry.attributes.color.array;
-  const rp = rightAttr.array, rc = rightPoints.geometry.attributes.color.array;
-  for (let i = 0; i < n; i++) {
-    const from = leftFrom.pos[i], mid = animState.leftMid[i], to = leftTo.pos[i];
-    lp[i] = p < .5 ? lerp(from, mid, e1) : lerp(mid, to, e2);
-    lc[i] = lerp(leftFrom.col[i], leftTo.col[i], p);
-  }
-  const m = rightTo.pos.length;
-  for (let i = 0; i < m; i++) {
-    const from = rightFrom.pos[i], mid = animState.rightMid[i], to = rightTo.pos[i];
-    rp[i] = p < .5 ? lerp(from, mid, e1) : lerp(mid, to, e2);
-    rc[i] = lerp(rightFrom.col[i], rightTo.col[i], p);
-  }
-  leftAttr.needsUpdate = true; leftPoints.geometry.attributes.color.needsUpdate = true;
-  rightAttr.needsUpdate = true; rightPoints.geometry.attributes.color.needsUpdate = true;
-  if (p >= 1) {
-    leftPoints.geometry.setDrawRange(0, n/3);
-    rightPoints.geometry.setDrawRange(0, m/3);
-    animState = null; busy = false;
-  }
+  if (oldL) oldL.dispose();
+  if (oldR) oldR.dispose();
+  // 淡入 + 回正
+  await new Promise(res => animateValue(300, p => {
+    leftMat.opacity = p;
+    rightMat.opacity = p;
+    tiltGroup.rotation.x = (1 - p) * 0.12;
+  }, res));
+  tiltGroup.rotation.x = 0;
+  busy = false;
 }
 
 // ---------- 启动 ----------
 async function start() {
   init();
   const [imgL, imgR] = await Promise.all([getImage(1), getImage(2)]);
-  samplePhoto(imgL, -1, leftTo.pos, leftTo.col);
-  samplePhoto(imgR, 1, rightTo.pos, rightTo.col);
-  applyPage(leftPoints, leftAttr, leftTo.pos, leftTo.col, leftTo.pos.length/3);
-  applyPage(rightPoints, rightAttr, rightTo.pos, rightTo.col, rightTo.pos.length/3);
+  leftMat.map = makePageTexture(imgL);
+  rightMat.map = makePageTexture(imgR);
+  leftMat.needsUpdate = true;
+  rightMat.needsUpdate = true;
   $('loading').classList.add('hidden');
-  // 首次翻页按钮提示之后自动隐藏由 CSS 处理（保持显示）
 }
 function animate(time) {
   requestAnimationFrame(animate);
-  const dt = Math.min(50, time - (animate.last || time));
-  animate.last = time;
-  stepAnim(dt);
   starPoints.rotation.y += 0.0004;
   bookGroup.rotation.y = Math.sin(time*0.00025)*0.07;
   controls.update();
   renderer.render(scene, camera);
 }
 
-// 点击翻页
+// 点击翻页：右侧下一页，左侧上一页
 window.addEventListener('pointerdown', (e) => {
   if (e.target && e.target.closest && e.target.closest('#loading')) return;
   if (busy) return;
