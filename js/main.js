@@ -225,7 +225,7 @@ const objects = [];
 const targets = { heart: [], tree: [], ferris: [], galaxy: [], rose: [], firework: [], infinity: [], vortex: [], message: [] };
 
 // 关键修改点：设定为 120 张
-const photoCount = 120; 
+const photoCount = (appConfig && appConfig.photoCountCfg) ? appConfig.photoCountCfg : 120; 
 const totalUploadedPhotos = 120; 
 
 let particles;
@@ -248,6 +248,7 @@ let decorPoints = null;
 let namePoints = null;
 let nameTimer = null;
 let nameVisible = false;
+let appConfig = null;
 const MESSAGE_TEXT = [
   '其实我不太会表达自己，也是一个特别怕麻烦的人。可是你的出现让我觉得我也是生动的人。谢谢你给了我一个很好的温度，让我感受到了爱和温暖。想起你，我就觉得有了依靠，做事情都多了一份底气。难怪大家都说，被爱好似有靠山。',
   '其实，我真的远比你想象中更需要你，更在意你。谢谢你总能照顾到我的情绪，在意我说过的话。相处这么久也让我很开心，因为有你在。谢谢你靠近我、温暖我、了解我、陪伴我。',
@@ -257,6 +258,7 @@ const MESSAGE_TEXT = [
 let currentShapeIndex = 0;
 let shapeBusy = false;
 
+appConfig = Object.assign(defaultSettings(), loadSettings());
 init();
 preloadAllPhotos();
 animate();
@@ -483,7 +485,7 @@ function init() {
         objects.push( objectCSS );
     }
 
-    const scale = 45; 
+    const scale = 45 * ((appConfig && appConfig.heartScale) ? appConfig.heartScale : 1); 
     for ( let i = 0; i < objects.length; i ++ ) {
         let t = (i / objects.length) * Math.PI * 2;
         let x = 16 * Math.pow(Math.sin(t), 3) * scale;
@@ -1127,7 +1129,7 @@ function cameraTour() {
     controls.enabled = false;
     const name = SHAPE_NAMES[currentShapeIndex];
     const t0 = performance.now();
-    const duration = 10000;
+    const duration = ((appConfig && appConfig.tourDuration) ? appConfig.tourDuration : 10) * 1000;
     const timer = setInterval(() => {
         // 88 秒文字动画优先：一旦触发立即停止运镜
         if (messagePlaying) {
@@ -1157,7 +1159,8 @@ function cameraTour() {
             controls.target.set(x45, y45 + 150, 0);
         } else {
             // 其他形状：电影级环绕 + 俯仰呼吸，准心跟随形状
-            camera.position.set(Math.cos(t)*2050, 180 + Math.sin(t*2.5)*340, Math.sin(t)*2050);
+            const distMul = (appConfig && appConfig.tourDistance) ? appConfig.tourDistance : 1;
+            camera.position.set(Math.cos(t)*2050*distMul, 180 + Math.sin(t*2.5)*340*distMul, Math.sin(t)*2050*distMul);
             controls.target.set(Math.cos(t)*700, Math.sin(t)*700, 0);
         }
         camera.lookAt(controls.target);
@@ -1311,7 +1314,7 @@ function saveSettings(s) {
     localStorage.setItem('consoleSettings', JSON.stringify(s));
 }
 function defaultSettings() {
-    return { announcementOn: false, announcementText: '', testBtnOn: true, calendarOn: false, calendarEvents: [], maintenanceOn: false, musicOn: true, doubleTapOn: true, tripleTapOn: true, letterOn: true, tipsOn: true, photoZoomOn: true, nameTapOn: true, fiveTapOn: true };
+    return { announcementOn: false, announcementText: '', testBtnOn: true, calendarOn: false, calendarEvents: [], maintenanceOn: false, musicOn: true, doubleTapOn: true, tripleTapOn: true, letterOn: true, tipsOn: true, photoZoomOn: true, nameTapOn: true, fiveTapOn: true, tourDuration: 10, tourDistance: 1, heartScale: 1, photoCountCfg: 120, title: '', desc: '' };
 }
 function applySettings() {
     const s = Object.assign(defaultSettings(), loadSettings());
@@ -1351,6 +1354,12 @@ function openConsolePanel() {
     document.getElementById('cfg-calendar').checked = s.calendarOn;
     document.getElementById('cfg-nametap').checked = s.nameTapOn;
     document.getElementById('cfg-fivetap').checked = s.fiveTapOn;
+    document.getElementById('cfg-tourduration').value = s.tourDuration;
+    document.getElementById('cfg-tourdistance').value = s.tourDistance;
+    document.getElementById('cfg-heartscale').value = s.heartScale;
+    document.getElementById('cfg-photocount').value = s.photoCountCfg;
+    document.getElementById('cfg-title').value = s.title || '';
+    document.getElementById('cfg-desc').value = s.desc || '';
     renderCalendar();
     document.getElementById('console-lock').classList.remove('show');
     document.getElementById('console-panel').classList.add('show');
@@ -1395,7 +1404,14 @@ document.getElementById('console-close').addEventListener('click', () => {
     s.calendarOn = document.getElementById('cfg-calendar').checked;
     s.nameTapOn = document.getElementById('cfg-nametap').checked;
     s.fiveTapOn = document.getElementById('cfg-fivetap').checked;
+    s.tourDuration = Number(document.getElementById('cfg-tourduration').value) || 10;
+    s.tourDistance = Number(document.getElementById('cfg-tourdistance').value) || 1;
+    s.heartScale = Number(document.getElementById('cfg-heartscale').value) || 1;
+    s.photoCountCfg = Number(document.getElementById('cfg-photocount').value) || 120;
+    s.title = document.getElementById('cfg-title').value;
+    s.desc = document.getElementById('cfg-desc').value;
     saveSettings(s);
+    if (s.title) document.title = s.title;
     applySettings();
     document.getElementById('console-panel').classList.remove('show');
 });
@@ -1410,6 +1426,23 @@ document.getElementById('cal-add').addEventListener('click', () => {
     renderCalendar();
 });
 document.getElementById('calendar-fab').addEventListener('click', showCalendar);
-// 初始化设置 + 公告
+document.getElementById('cfg-preview').addEventListener('click', () => { document.getElementById('console-panel').classList.remove('show'); });
+document.getElementById('cfg-export').addEventListener('click', () => {
+    const s = Object.assign(defaultSettings(), loadSettings());
+    const blob = new Blob([JSON.stringify(s, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'love-config.json';
+    a.click();
+});
+document.getElementById('cfg-reset').addEventListener('click', () => {
+    localStorage.removeItem('consoleSettings');
+    alert('已重置全部配置');
+    location.reload();
+});
+// 初始化设置 + 公告 + 标题描述
 applySettings();
+const _s = Object.assign(defaultSettings(), loadSettings());
+if (_s.title) document.title = _s.title;
+if (_s.desc) { const md = document.querySelector('meta[name=description]'); if (md) md.setAttribute('content', _s.desc); }
 setTimeout(showAnnouncement, 800);
