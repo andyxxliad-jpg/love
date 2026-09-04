@@ -1297,3 +1297,108 @@ if (!isFirstTime) {
     document.getElementById('main-ui').style.pointerEvents = 'none';
     // 老用户：图片加载完成后直接进入，不强制显示信件。
 }
+
+/* ===== 控制台（密码 xiaolishaoTTKX08）===== */
+function loadSettings() {
+    try { return JSON.parse(localStorage.getItem('consoleSettings')) || {}; } catch (e) { return {}; }
+}
+function saveSettings(s) {
+    localStorage.setItem('consoleSettings', JSON.stringify(s));
+}
+function defaultSettings() {
+    return { announcementOn: false, announcementText: '', testBtnOn: true, calendarOn: false, calendarEvents: [] };
+}
+function applySettings() {
+    const s = Object.assign(defaultSettings(), loadSettings());
+    const testBtn = document.getElementById('test-btn');
+    if (testBtn) testBtn.style.display = s.testBtnOn ? 'block' : 'none';
+    const fab = document.getElementById('calendar-fab');
+    if (fab) fab.style.display = s.calendarOn ? 'block' : 'none';
+    renderCalendar();
+    return s;
+}
+function renderCalendar() {
+    const s = Object.assign(defaultSettings(), loadSettings());
+    const list = document.getElementById('cal-list');
+    if (!list) return;
+    list.innerHTML = '';
+    s.calendarEvents.forEach((ev, i) => {
+        const d = document.createElement('div');
+        d.className = 'cal-item';
+        d.innerHTML = '<b>' + ev.date + '</b>　' + ev.text + ' <button data-i="' + i + '" class="cal-del" style="float:right;background:none;border:none;color:#ff8ca3;cursor:pointer">删除</button>';
+        list.appendChild(d);
+    });
+    document.querySelectorAll('.cal-del').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const s = Object.assign(defaultSettings(), loadSettings());
+            s.calendarEvents.splice(Number(btn.dataset.i), 1);
+            saveSettings(s); renderCalendar();
+        });
+    });
+}
+function openConsolePanel() {
+    const s = Object.assign(defaultSettings(), loadSettings());
+    document.getElementById('cfg-announce').checked = s.announcementOn;
+    document.getElementById('cfg-announce-text').value = s.announcementText || '';
+    document.getElementById('cfg-testbtn').checked = s.testBtnOn;
+    document.getElementById('cfg-calendar').checked = s.calendarOn;
+    renderCalendar();
+    document.getElementById('console-lock').classList.remove('show');
+    document.getElementById('console-panel').classList.add('show');
+}
+function showAnnouncement() {
+    const s = Object.assign(defaultSettings(), loadSettings());
+    if (s.announcementOn && s.announcementText) {
+        document.getElementById('announce-content').textContent = s.announcementText;
+        showModal('announce-modal');
+    }
+}
+function closeAnnounce() { hideModal('announce-modal'); }
+function showCalendar() {
+    const s = Object.assign(defaultSettings(), loadSettings());
+    const c = document.getElementById('calendar-content');
+    if (!c) return;
+    if (!s.calendarEvents.length) { c.textContent = '还没有记录哦～'; }
+    else {
+        c.innerHTML = s.calendarEvents.map(ev => '<div class="cal-item"><b>' + ev.date + '</b><br>' + ev.text + '</div>').join('');
+    }
+    showModal('calendar-modal');
+}
+document.getElementById('console-btn').addEventListener('click', () => {
+    document.getElementById('console-lock').classList.add('show');
+});
+document.getElementById('console-cancel').addEventListener('click', () => {
+    document.getElementById('console-lock').classList.remove('show');
+});
+document.getElementById('console-unlock').addEventListener('click', () => {
+    if (document.getElementById('console-pwd').value === 'xiaolishaoTTKX08') {
+        document.getElementById('console-pwd').value = '';
+        openConsolePanel();
+    } else {
+        alert('密码错误');
+    }
+});
+document.getElementById('console-close').addEventListener('click', () => {
+    const s = Object.assign(defaultSettings(), loadSettings());
+    s.announcementOn = document.getElementById('cfg-announce').checked;
+    s.announcementText = document.getElementById('cfg-announce-text').value;
+    s.testBtnOn = document.getElementById('cfg-testbtn').checked;
+    s.calendarOn = document.getElementById('cfg-calendar').checked;
+    saveSettings(s);
+    applySettings();
+    document.getElementById('console-panel').classList.remove('show');
+});
+document.getElementById('cal-add').addEventListener('click', () => {
+    const date = document.getElementById('cal-date').value;
+    const text = document.getElementById('cal-text').value.trim();
+    if (!date || !text) return;
+    const s = Object.assign(defaultSettings(), loadSettings());
+    s.calendarEvents.push({ date: date, text: text });
+    saveSettings(s);
+    document.getElementById('cal-text').value = '';
+    renderCalendar();
+});
+document.getElementById('calendar-fab').addEventListener('click', showCalendar);
+// 初始化设置 + 公告
+applySettings();
+setTimeout(showAnnouncement, 800);
