@@ -60,7 +60,7 @@ let pageIndex = 0;                          // 0..59，显示照片 (2n+1, 2n+2)
 let busy = false;
 
 let renderer, scene, camera, controls, bookGroup, starPoints, framePoints, titlePoints;
-let leftMesh, rightMesh, rightPivot, leftMat, rightMat, tiltGroup;
+let leftMesh, leftPivot, rightMesh, rightPivot, leftMat, rightMat, tiltGroup;
 
 const $ = id => document.getElementById(id);
 const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
@@ -216,13 +216,16 @@ function init() {
   leftMat = new THREE.MeshBasicMaterial({ map: null, transparent: true, opacity: 1, depthWrite: false, side: THREE.DoubleSide });
   rightMat = new THREE.MeshBasicMaterial({ map: null, transparent: true, opacity: 1, depthWrite: false, side: THREE.DoubleSide });
   leftMesh = new THREE.Mesh(pageGeo, leftMat);
+  leftPivot = new THREE.Group();
+  leftPivot.position.set(0, 0, 0);
   leftMesh.position.set(-PAGE_W/2, 0, -1);
+  leftPivot.add(leftMesh);
   rightPivot = new THREE.Group();
   rightPivot.position.set(0, 0, 0);
   rightMesh = new THREE.Mesh(pageGeo, rightMat);
   rightMesh.position.set(PAGE_W/2, 0, -1);
   rightPivot.add(rightMesh);
-  tiltGroup.add(leftMesh);
+  tiltGroup.add(leftPivot);
   tiltGroup.add(rightPivot);
 
   // 标题粒子
@@ -270,27 +273,52 @@ async function goToPage(newIndex) {
   newIndex = clamp(newIndex, 0, TOTAL_PAIRS-1);
   if (newIndex === pageIndex) return;
   busy = true;
+  const forward = newIndex > pageIndex;
   const leftNo = newIndex*2+1, rightNo = newIndex*2+2;
   const [imgL, imgR] = await Promise.all([getImage(leftNo), getImage(rightNo)]);
   const texL = makePageTexture(imgL), texR = makePageTexture(imgR);
   const oldL = leftMat.map, oldR = rightMat.map;
-  // 右页绕书脊从右往左翻（0° → -180°，向前翻越书脊落到左侧）
-  let swapped = false;
-  await new Promise(res => animateValue(720, p => {
-    rightPivot.rotation.y = -Math.PI * p;
-    if (p >= 0.5 && !swapped) {
-      swapped = true;
-      leftMat.map = texL; leftMat.needsUpdate = true;
-      if (oldL) oldL.dispose();
-    }
-  }, res));
-  // 翻页完成：右页复位，换上新右页照片
-  rightPivot.rotation.y = 0;
-  rightMat.map = texR; rightMat.needsUpdate = true;
-  if (oldR) oldR.dispose();
+  if (forward) {
+    // 下一页：右页绕书脊从右往左翻越
+    let swapped = false;
+    await new Promise(res => animateValue(700, p => {
+      rightPivot.rotation.y = -Math.PI * p;
+      if (p >= 0.5 && !swapped) {
+        swapped = true;
+        leftMat.map = texL; leftMat.needsUpdate = true;
+        if (oldL) oldL.dispose();
+      }
+    }, res));
+    rightPivot.rotation.y = 0;
+    rightMat.map = texR; rightMat.needsUpdate = true;
+  } else {
+    // 上一页：左页绕书脊从左往右翻回
+    let swapped = false;
+    await new Promise(res => animateValue(700, p => {
+      leftPivot.rotation.y = Math.PI * p;
+      if (p >= 0.5 && !swapped) {
+        swapped = true;
+        rightMat.map = texR; rightMat.needsUpdate = true;
+        if (oldR) oldR.dispose();
+      }
+    }, res));
+    leftPivot.rotation.y = 0;
+    leftMat.map = texL; leftMat.needsUpdate = true;
+  }
+  if (oldL && oldL !== texL && leftMat.map !== oldL) oldL.dispose();
+  if (oldR && oldR !== texR && rightMat.map !== oldR) oldR.dispose();
   pageIndex = newIndex;
   $('page-ind').textContent = `第 ${newIndex+1} / ${TOTAL_PAIRS} 页`;
   busy = false;
+  preloadNeighbors(newIndex);
+}
+function preloadNeighbors(index) {
+  // 预加载相邻两页，点击翻页时照片已就绪，不再等待
+  for (const n of [index-1, index+1]) {
+    if (n < 0 || n >= TOTAL_PAIRS) continue;
+    getImage(n*2+1);
+    getImage(n*2+2);
+  }
 }
 
 // ---------- 启动 ----------
@@ -301,6 +329,7 @@ async function start() {
   rightMat.map = makePageTexture(imgR);
   leftMat.needsUpdate = true;
   rightMat.needsUpdate = true;
+  preloadNeighbors(0);
   $('loading').classList.add('hidden');
 }
 function animate(time) {
