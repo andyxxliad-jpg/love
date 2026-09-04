@@ -881,13 +881,13 @@ function buildNameParticles() {
     pts.push(...sampleNameText('andy', -340));
     pts.push(...sampleNameText('陶陶', 340));
     // 中间：粒子排列成空心爱心轮廓
-    // 实心 3D 爱心：粒子填充（上面两个圆凸起 + 下面尖角）
-    for (let i = 0; i < 650; i++) {
+    // 实心 3D 爱心：缩小一号、更多粒子填充、不挡两侧文字
+    for (let i = 0; i < 900; i++) {
         const t = Math.random() * Math.PI * 2;
         const rr = Math.sqrt(Math.random());
-        const hx = 16 * Math.pow(Math.sin(t), 3) * 24 * rr;
-        const hy = (13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t)) * 24 * rr;
-        pts.push(hx, hy + 8, (Math.random() - .5) * 18);
+        const hx = 16 * Math.pow(Math.sin(t), 3) * 16 * rr;
+        const hy = (13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t)) * 16 * rr;
+        pts.push(hx, hy + 6, (Math.random() - .5) * 20);
     }
     return pts;
 }
