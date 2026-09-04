@@ -472,8 +472,8 @@ function enterAnimation() {
             <div class="wire-page-stack">
                 ${pageImages.map((url, i) => `
                     <div class="wire-page" data-page="${i + 1}">
-                        <div class="wire-page-face wire-page-front" style="background-image:url(\\\"${url}\\\")"><span>${i + 1}</span></div>
-                        <div class="wire-page-face wire-page-back" style="background-image:url(\\\"${url}\\\")"><span>${i + 1}</span></div>
+                        <div class="wire-page-face wire-page-front" style="background-image:url('${url}')"><span>${i + 1}</span></div>
+                        <div class="wire-page-face wire-page-back" style="background-image:url('${url}')"><span>${i + 1}</span></div>
                     </div>`).join('')}
             </div>
             <div class="wire-spread-left"></div>
@@ -484,8 +484,8 @@ function enterAnimation() {
     const pages = Array.from(stage.querySelectorAll('.wire-page'));
     const spreadLeft = stage.querySelector('.wire-spread-left');
     const spreadRight = stage.querySelector('.wire-spread-right');
-    spreadLeft.style.backgroundImage = `url(\\\"${pageImages[4]}\\\")`;
-    spreadRight.style.backgroundImage = `url(\\\"${pageImages[5]}\\\")`;
+    spreadLeft.style.backgroundImage = `url('${pageImages[4]}')`;
+    spreadRight.style.backgroundImage = `url('${pageImages[5]}')`;
 
     const preloadPage = (url) => new Promise(resolve => {
         const image = new Image();
@@ -499,7 +499,10 @@ function enterAnimation() {
         requestAnimationFrame(() => book.classList.add('wire-open'));
         pages.forEach((page, index) => {
             page.style.zIndex = String(pageCount - index + 20);
-            setTimeout(() => page.classList.add('wire-turned'), 850 + index * 650);
+            setTimeout(() => {
+                page.classList.add('wire-turned');
+                setTimeout(() => { page.style.zIndex = String(10 + index); }, 620);
+            }, 850 + index * 650);
         });
         setTimeout(() => book.classList.add('wire-spread'), 5050);
         setTimeout(() => book.classList.add('wire-zoom'), 5450);
