@@ -638,7 +638,7 @@ function moveCameraToText() {
         const dur = 1800;
         const timer = setInterval(() => {
             const p = Math.min(1, (performance.now() - t0) / dur);
-            const e = ease(p);
+            const e = p < 0.5 ? 4*p*p*p : 1 - Math.pow(-2*p+2, 3)/2;
             camera.position.set(sx + (0 - sx) * e, sy + (0 - sy) * e, sz + (9600 - sz) * e);
             controls.target.set(tx + (0 - tx) * e, ty + (0 - ty) * e, tz + (8000 - tz) * e);
             camera.lookAt(controls.target);
