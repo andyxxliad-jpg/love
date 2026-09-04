@@ -239,6 +239,7 @@ let messagePlaying = false;
 let blackPaper = null;
 let letterTextEl = null;
 let letterInnerEl = null;
+let letterObj = null;
 const MESSAGE_TEXT = [
   '其实我不太会表达自己，也是一个特别怕麻烦的人。可是你的出现让我觉得我也是生动的人。谢谢你给了我一个很好的温度，让我感受到了爱和温暖。想起你，我就觉得有了依靠，做事情都多了一份底气。难怪大家都说，被爱好似有靠山。',
   '其实，我真的远比你想象中更需要你，更在意你。谢谢你总能照顾到我的情绪，在意我说过的话。相处这么久也让我很开心，因为有你在。谢谢你靠近我、温暖我、了解我、陪伴我。',
@@ -400,7 +401,7 @@ function init() {
     bpEl.style.background = '#000';
     bpEl.style.borderRadius = '10px';
     blackPaper = new THREE.CSS3DObject(bpEl);
-    blackPaper.position.set(0, 0, -30);
+    blackPaper.position.set(0, 0, 7980);
     blackPaper.visible = false;
     sceneCSS.add(blackPaper);
 
@@ -409,8 +410,8 @@ function init() {
     letterInnerEl = document.createElement('div');
     letterInnerEl.style.cssText = 'width:100%;height:auto;color:#fff;font:19px/2.2 "ZCOOL KuaiLe","PingFang SC",sans-serif;text-align:left;letter-spacing:1px;white-space:pre-wrap;overflow-wrap:break-word;text-shadow:0 0 8px rgba(255,255,255,.5);transition:opacity .5s ease,transform .5s ease;';
     letterTextEl.appendChild(letterInnerEl);
-    const letterObj = new THREE.CSS3DObject(letterTextEl);
-    letterObj.position.set(0, 0, 20);
+    letterObj = new THREE.CSS3DObject(letterTextEl);
+    letterObj.position.set(0, 0, 8020);
     letterObj.visible = false;
     sceneCSS.add(letterObj);
 
@@ -669,8 +670,8 @@ function moveCameraToText() {
         const timer = setInterval(() => {
             const p = Math.min(1, (performance.now() - t0) / dur);
             const e = ease(p);
-            camera.position.set(sx + (0 - sx) * e, sy + (0 - sy) * e, sz + (2800 - sz) * e);
-            controls.target.set(tx + (0 - tx) * e, ty + (0 - ty) * e, tz + (0 - tz) * e);
+            camera.position.set(sx + (0 - sx) * e, sy + (0 - sy) * e, sz + (9600 - sz) * e);
+            controls.target.set(tx + (0 - tx) * e, ty + (0 - ty) * e, tz + (8000 - tz) * e);
             camera.lookAt(controls.target);
             if (p >= 1) { clearInterval(timer); camera.lookAt(controls.target); res(); }
         }, 16);
@@ -698,7 +699,7 @@ async function playMessage() {
     controls.autoRotate = false;
     controls.enabled = false;
     blackPaper.visible = true;
-    letterTextEl.parentElement && letterTextEl.parentElement; // noop
+    letterObj.visible = true;
     letterTextEl.style.display = 'flex';
     transform(targets.message, 1800);
     animateTrunk(false); animateFerris(false);
@@ -718,13 +719,16 @@ async function playMessage() {
     if (blackout) blackout.classList.add('show');
     await wait(650);
     blackPaper.visible = false;
+    letterObj.visible = false;
     letterTextEl.style.display = 'none';
     await wait(400);
     transform(targets[SHAPE_NAMES[prevShape]], 1600);
     if (blackout) blackout.classList.remove('show');
     controls.autoRotate = prevAutoRotate;
     controls.enabled = prevEnabled;
+    camera.position.set(0, 0, 2800);
     controls.target.set(0, 0, 0);
+    camera.lookAt(0, 0, 0);
     controls.update();
     messagePlaying = false;
 }
