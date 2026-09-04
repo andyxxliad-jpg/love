@@ -425,7 +425,7 @@ function init() {
     }
     nameGeo.setAttribute('position', new THREE.BufferAttribute(namePos, 3));
     namePoints = new THREE.Points(nameGeo, new THREE.PointsMaterial({
-        size: 48, map: texture, transparent: true, opacity: 1,
+        size: 24, map: texture, transparent: true, opacity: 1,
         blending: THREE.AdditiveBlending, depthWrite: false }));
     sceneWebGL.add(namePoints);
 
@@ -785,8 +785,9 @@ function decorScatter() {
     const arr = [];
     for (let i = 0; i < 800; i++) {
         const a = Math.random() * Math.PI * 2;
-        const r = 900 + Math.random() * 2200;
-        arr.push(Math.cos(a)*r, Math.sin(a)*r, (Math.random()-.5)*2500);
+        const b = Math.acos(2 * Math.random() - 1);
+        const r = 2200 + Math.random() * 2800;
+        arr.push(r*Math.sin(b)*Math.cos(a), r*Math.sin(b)*Math.sin(a), r*Math.cos(b));
     }
     return arr;
 }
@@ -855,7 +856,7 @@ function buildNameParticles() {
     ctx.fillText('andy ♥ 陶陶', 450, 150);
     const data = ctx.getImageData(0, 0, 900, 300).data;
     const pts = [];
-    for (let y = 0; y < 300; y += 4) for (let x = 0; x < 900; x += 4) {
+    for (let y = 0; y < 300; y += 6) for (let x = 0; x < 900; x += 6) {
         const i = (y * 900 + x) * 4;
         if (data[i] > 150 && data[i+1] > 150 && data[i+2] > 150) {
             const px = (x / 900 - .5) * 1150 + (Math.random() - .5) * 24;
@@ -869,8 +870,9 @@ function nameScatter() {
     const arr = [];
     for (let i = 0; i < 8000; i++) {
         const a = Math.random() * Math.PI * 2;
-        const r = 1400 + Math.random() * 2800;
-        arr.push(Math.cos(a)*r, Math.sin(a)*r, (Math.random()-.5)*3200);
+        const b = Math.acos(2 * Math.random() - 1);
+        const r = 2600 + Math.random() * 3400;
+        arr.push(r*Math.sin(b)*Math.cos(a), r*Math.sin(b)*Math.sin(a), r*Math.cos(b));
     }
     return arr;
 }
