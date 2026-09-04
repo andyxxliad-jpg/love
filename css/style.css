@@ -130,4 +130,5 @@ html, body {
 #letter-modal .letter-bg { max-height: 74vh; overflow-y: auto; }
 .photo-loading-screen { background: #05020a; }
 .photo-loading-screen.hidden { visibility: hidden; }
-.element { background-color: rgba(255,140,163,.08); backface-visibility: hidden; }
+.element { background-color: rgba(255,140,163,.08); }
+.element-back { backface-visibility: visible; }
