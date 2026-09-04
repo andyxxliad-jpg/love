@@ -119,3 +119,35 @@ html, body {
 .loading-box #photo-loading-count { color: #ffc1cd; font-size: 12px; opacity: .8; }
 
 
+
+
+/* Central memory book entrance: one composited 3D book, six high-resolution pages. */
+.book-stage { position: fixed; inset: 0; z-index: 1800; display: flex; align-items: center; justify-content: center; overflow: hidden; perspective: 1800px; background: radial-gradient(circle at center, rgba(36,18,42,.55), rgba(5,2,10,.98) 76%); opacity: 0; transition: opacity .55s ease; pointer-events: none; }
+.book-stage.book-ready { opacity: 1; }
+.book-stage.book-exit { opacity: 0; transition-duration: .85s; }
+.memory-book { position: relative; width: min(88vw, 900px); height: min(72vh, 620px); transform: rotateX(14deg) scale(.58) translateY(80px); transform-style: preserve-3d; transition: transform 1s cubic-bezier(.2,.8,.25,1); filter: drop-shadow(0 28px 34px rgba(0,0,0,.65)); }
+.memory-book.book-open { transform: rotateX(8deg) scale(1) translateY(0); }
+.memory-book.book-zoom { transform: rotateX(0deg) scale(3.1) translateZ(420px); opacity: 0; transition: transform 1.15s cubic-bezier(.2,.7,.15,1), opacity 1.1s ease; }
+.book-cover, .book-page-base, .book-final-page, .book-sheet { position: absolute; top: 0; height: 100%; width: 50%; border-radius: 7px 3px 3px 7px; transform-style: preserve-3d; }
+.book-cover { background: linear-gradient(135deg,#7d314c,#351631 60%,#1b1021); border: 3px solid rgba(255,203,213,.5); box-shadow: inset 0 0 0 5px rgba(255,255,255,.08), 0 12px 25px rgba(0,0,0,.45); }
+.book-cover-front { left: 50%; transform-origin: left center; transform: rotateY(0deg); z-index: 80; }
+.book-cover-back { left: 0; border-radius: 3px 7px 7px 3px; transform: rotateY(0deg); z-index: 1; }
+.book-page-base { background: linear-gradient(90deg,#fffdf8,#f5e9dc); border: 1px solid rgba(92,52,40,.25); box-shadow: inset 0 0 22px rgba(115,63,45,.12); }
+.book-left-base { left: 0; transform-origin: right center; border-radius: 7px 3px 3px 7px; }
+.book-right-base { left: 50%; border-radius: 3px 7px 7px 3px; }
+.book-spine { position: absolute; z-index: 75; left: calc(50% - 7px); top: 0; width: 14px; height: 100%; background: linear-gradient(90deg,rgba(77,29,45,.7),rgba(255,220,215,.65),rgba(77,29,45,.7)); transform: translateZ(8px); border-radius: 5px; }
+.book-sheet { left: 50%; z-index: 20; transform-origin: left center; transition: transform .5s cubic-bezier(.25,.75,.2,1); }
+.book-sheet.page-turned { transform: rotateY(-180deg); }
+.book-face { position: absolute; inset: 0; overflow: hidden; border: 1px solid rgba(83,49,38,.3); background-color: #f7ede3; background-position: center; background-size: cover; background-repeat: no-repeat; backface-visibility: hidden; box-shadow: inset 0 0 18px rgba(60,25,20,.16); }
+.book-front { border-radius: 3px 7px 7px 3px; }
+.book-back { border-radius: 7px 3px 3px 7px; transform: rotateY(180deg); }
+.book-final-page { z-index: 10; opacity: 0; background-color: #f7ede3; background-position: center; background-size: cover; background-repeat: no-repeat; border: 1px solid rgba(83,49,38,.3); box-shadow: inset 0 0 18px rgba(60,25,20,.16); transition: opacity .45s ease; }
+.book-final-left { left: 0; border-radius: 7px 3px 3px 7px; }
+.book-final-right { left: 50%; border-radius: 3px 7px 7px 3px; }
+.memory-book.book-spread .book-final-page { opacity: 1; }
+.memory-book.book-spread .book-sheet { opacity: 0; transition: opacity .35s ease; }
+@media (max-width: 768px) {
+    .memory-book { width: 94vw; height: min(66vh, 600px); }
+    .book-stage { perspective: 1100px; }
+    .memory-book.book-zoom { transform: rotateX(0deg) scale(2.6) translateZ(260px); }
+}
