@@ -417,13 +417,11 @@ function enterAnimation() {
         object.scale.set(1, 1, 1);
         object.visible = true;
     }
-    cullingEnabled = true;
     render();
 }
 
 function transform( targets, duration ) {
     TWEEN.removeAll();
-    cullingEnabled = false;
     for ( let i = 0; i < objects.length; i ++ ) {
         const object = objects[ i ];
         const target = targets[ i ];
@@ -438,7 +436,7 @@ function transform( targets, duration ) {
             .easing( TWEEN.Easing.Exponential.InOut )
             .start();
     }
-    new TWEEN.Tween( this ).to( {}, duration * 2 ).onUpdate( render ).onComplete(() => { cullingEnabled = true; }).start();
+    new TWEEN.Tween( this ).to( {}, duration * 2 ).onUpdate( render ).start();
 }
 
 function onWindowResize() {
@@ -464,21 +462,7 @@ function animate() {
 
 function render() {
     rendererWebGL.render( sceneWebGL, camera );
-    updatePhotoCulling();
     rendererCSS.render( sceneCSS, camera );
-}
-
-let cullingEnabled = false;
-function updatePhotoCulling() {
-    if (!cullingEnabled) return;
-    const cameraWorld = new THREE.Vector3();
-    camera.getWorldPosition(cameraWorld);
-    const visibleRadius = 2600;
-    for (let i = 0; i < objects.length; i++) {
-        const object = objects[i];
-        const distance = object.position.distanceTo(cameraWorld);
-        object.visible = distance < visibleRadius;
-    }
 }
 
 const isFirstTime = !localStorage.getItem('universeVisited_v14');
