@@ -58,6 +58,10 @@ function startExperience() {
     } else {
         enterAnimation();
     }
+    // 进入后稍候弹出操作提示
+    setTimeout(() => {
+        if (!messagePlaying) showModal('tips-modal');
+    }, 2600);
 }
 
 const btnEnter = document.getElementById('btn-enter');
