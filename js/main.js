@@ -244,6 +244,8 @@ let letterInnerEl = null;
 let letterObj = null;
 let letterOverlay = null;
 let decorPoints = null;
+let namePoints = null;
+let nameTimer = null;
 const MESSAGE_TEXT = [
   '其实我不太会表达自己，也是一个特别怕麻烦的人。可是你的出现让我觉得我也是生动的人。谢谢你给了我一个很好的温度，让我感受到了爱和温暖。想起你，我就觉得有了依靠，做事情都多了一份底气。难怪大家都说，被爱好似有靠山。',
   '其实，我真的远比你想象中更需要你，更在意你。谢谢你总能照顾到我的情绪，在意我说过的话。相处这么久也让我很开心，因为有你在。谢谢你靠近我、温暖我、了解我、陪伴我。',
@@ -410,6 +412,21 @@ function init() {
     decorGroup.scale.set(1.6, 1.6, 1.6);
     decorGroup.add(decorPoints);
     sceneWebGL.add(decorGroup);
+
+    // 名字粒子（andy ♥ 陶陶 特写）
+    const nameCount = 8000;
+    const nameGeo = new THREE.BufferGeometry();
+    const namePos = new Float32Array(nameCount * 3);
+    for (let i = 0; i < nameCount; i++) {
+        namePos[i*3] = (Math.random() - .5) * 6000;
+        namePos[i*3+1] = (Math.random() - .5) * 5000;
+        namePos[i*3+2] = (Math.random() - .5) * 4000;
+    }
+    nameGeo.setAttribute('position', new THREE.BufferAttribute(namePos, 3));
+    namePoints = new THREE.Points(nameGeo, new THREE.PointsMaterial({
+        size: 22, map: texture, transparent: true, opacity: 1,
+        blending: THREE.AdditiveBlending, depthWrite: false }));
+    sceneWebGL.add(namePoints);
 
     rendererWebGL = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     rendererWebGL.setSize( window.innerWidth, window.innerHeight );
@@ -824,6 +841,85 @@ async function combinePatterns(list) {
     });
     return out;
 }
+function buildNameParticles() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 900; canvas.height = 300;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, 900, 300);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 120px "PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('andy ♥ 陶陶', 450, 150);
+    const data = ctx.getImageData(0, 0, 900, 300).data;
+    const pts = [];
+    for (let y = 0; y < 300; y += 2) for (let x = 0; x < 900; x += 2) {
+        const i = (y * 900 + x) * 4;
+        if (data[i] > 150 && data[i+1] > 150 && data[i+2] > 150) {
+            const px = (x / 900 - .5) * 1700;
+            const py = (.5 - y / 300) * 560;
+            pts.push(px, py, 0);
+        }
+    }
+    return pts;
+}
+function nameScatter() {
+    const arr = [];
+    for (let i = 0; i < 8000; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const r = 1400 + Math.random() * 2800;
+        arr.push(Math.cos(a)*r, Math.sin(a)*r, (Math.random()-.5)*3200);
+    }
+    return arr;
+}
+function showName() {
+    const targets = buildNameParticles();
+    const n3 = targets.length;
+    const posAttr = namePoints.geometry.attributes.position;
+    const scatter = nameScatter();
+    const t0 = performance.now();
+    const dur = 1500;
+    if (nameTimer) clearInterval(nameTimer);
+    nameTimer = setInterval(() => {
+        const p = Math.min(1, (performance.now() - t0) / dur);
+        const e = p < 0.5 ? 4*p*p*p : 1 - Math.pow(-2*p+2, 3)/2;
+        for (let i = 0; i < 8000; i++) {
+            const k = i*3;
+            if (k < n3) {
+                posAttr.array[k] = scatter[k]*(1-e) + targets[k]*e;
+                posAttr.array[k+1] = scatter[k+1]*(1-e) + targets[k+1]*e;
+                posAttr.array[k+2] = scatter[k+2]*(1-e) + targets[k+2]*e;
+            } else {
+                posAttr.array[k] *= .96;
+                posAttr.array[k+1] *= .96;
+                posAttr.array[k+2] *= .96;
+            }
+        }
+        posAttr.needsUpdate = true;
+        if (p >= 1) { clearInterval(nameTimer); nameTimer = null; }
+    }, 16);
+}
+function scatterName() {
+    if (nameTimer) clearInterval(nameTimer);
+    const posAttr = namePoints.geometry.attributes.position;
+    const scatter = nameScatter();
+    const from = posAttr.array.slice();
+    const t0 = performance.now();
+    const dur = 800;
+    nameTimer = setInterval(() => {
+        const p = Math.min(1, (performance.now() - t0) / dur);
+        const e = p < 0.5 ? 4*p*p*p : 1 - Math.pow(-2*p+2, 3)/2;
+        for (let i = 0; i < 8000; i++) {
+            const k = i*3;
+            posAttr.array[k] = from[k]*(1-e) + scatter[k]*e;
+            posAttr.array[k+1] = from[k+1]*(1-e) + scatter[k+1]*e;
+            posAttr.array[k+2] = from[k+2]*(1-e) + scatter[k+2]*e;
+        }
+        posAttr.needsUpdate = true;
+        if (p >= 1) { clearInterval(nameTimer); nameTimer = null; }
+    }, 16);
+}
 async function typeMessage(text) {
     if (!letterOverlay) letterOverlay = document.getElementById('letter-overlay');
     letterOverlay.textContent = '';
@@ -869,25 +965,32 @@ async function playMessage() {
     await wait(1900);
     // 文字期间：镜头环绕照片圈，电影级线性展示照片
     const msgTourT0 = performance.now();
+    let nameShown = false;
     const msgTour = setInterval(() => {
-        const raw = ((performance.now() - msgTourT0) / 14000) % 1;
+        const raw = ((performance.now() - msgTourT0) / 24000) % 1;
         const e = raw < 0.5 ? 4*raw*raw*raw : 1 - Math.pow(-2*raw+2, 3)/2;
         const t = e * Math.PI * 2;
-        // 电影级运镜：推近 → 竖着环绕展示 → 拉远
+        // 电影级运镜：推近 → 环绕展示 → 名字特写 → 拉远
         const p = raw;
-        if (p < 0.25) {
-            const q = p / 0.25;
+        if (p < 0.15) {
+            const q = p / 0.15;
             const r = 3000 - q * 950;
-            const ang = q * Math.PI * 1.5;
+            const ang = q * Math.PI;
             camera.position.set(Math.cos(ang)*r, Math.sin(ang)*r, 0);
-        } else if (p < 0.75) {
-            const tt = ((p - 0.25) / 0.5) * Math.PI * 2;
+        } else if (p < 0.5) {
+            if (!nameShown) { scatterName(); }
+            const tt = ((p - 0.15) / 0.35) * Math.PI * 2;
             camera.position.set(Math.cos(tt)*2050, Math.sin(tt)*2050, Math.sin(tt*2)*160);
+        } else if (p < 0.82) {
+            if (!nameShown) { showName(); nameShown = true; }
+            const q = (p - 0.5) / 0.32;
+            camera.position.set(0, 0, 1700 - q * 400);
         } else {
-            const q = (p - 0.75) / 0.25;
-            const r = 2050 + q * 950;
-            const ang = Math.PI*1.5 + q * Math.PI*1.5;
-            camera.position.set(Math.cos(ang)*r, Math.sin(ang)*r, Math.sin(q*Math.PI)*300);
+            if (nameShown) { scatterName(); nameShown = false; }
+            const q = (p - 0.82) / 0.18;
+            const r = 1300 + q * 1700;
+            const ang = q * Math.PI;
+            camera.position.set(Math.cos(ang)*r, Math.sin(ang)*r, 0);
         }
         controls.target.set(0, 0, 0);
         camera.lookAt(controls.target);
@@ -920,6 +1023,8 @@ async function playMessage() {
     clearInterval(patTimer);
     clearInterval(msgTour);
     if (decorTimer) clearInterval(decorTimer);
+    if (nameTimer) clearInterval(nameTimer);
+    scatterName();
     const blackout = document.getElementById('blackout');
     if (blackout) blackout.classList.add('show');
     await wait(650);
