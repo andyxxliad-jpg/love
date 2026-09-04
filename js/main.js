@@ -61,7 +61,6 @@ function startExperience() {
     }
 }
 
-const btnLocation = document.getElementById('btn-location');
 const btnEnter = document.getElementById('btn-enter');
 const weatherText = document.getElementById('weather-text');
 const welcomeScreen = document.getElementById('welcome-screen');
@@ -71,48 +70,20 @@ let audio = document.getElementById('bgm');
 // 用户第一次触摸屏幕时解除静音，声音无缝接上。
 function tryStartMusic() {
     if (!audio) return;
-    audio.play().catch(() => {});
+    const p = audio.play();
+    if (p && p.catch) p.catch(() => {});
+}
+function unmuteMusic() {
+    if (!audio) return;
+    audio.muted = false;
+    tryStartMusic();
 }
 audio.muted = true;
+audio.preload = 'auto';
 tryStartMusic();
-document.addEventListener('pointerdown', () => { audio.muted = false; tryStartMusic(); }, { once: true, passive: true });
-document.addEventListener('touchstart', () => { audio.muted = false; tryStartMusic(); }, { once: true, passive: true });
-
-btnLocation.addEventListener('click', () => {
-    weatherText.innerHTML = "正在感应你的位置... 🛰️";
-    btnLocation.style.display = 'none';
-
-    if ("geolocation" in navigator) {
-        navigator.geolocation.getCurrentPosition(async (position) => {
-            const lat = position.coords.latitude;
-            const lon = position.coords.longitude;
-            try {
-                const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
-                const data = await response.json();
-                const temp = data.current_weather.temperature;
-                const code = data.current_weather.weathercode;
-                
-                let weatherStr = "晴朗";
-                let tips = "今天天气真好，想不想我呀？☀️";
-                if(code >= 1 && code <= 3) { weatherStr = "多云"; tips = "云朵有点多，但也挡不住好心情~ ⛅"; }
-                if(code >= 45 && code <= 48) { weatherStr = "雾"; tips = "雾蒙蒙的，出门要注意安全哦~ 🌫️"; }
-                if(code >= 51 && code <= 67) { weatherStr = "雨"; tips = "今天下雨啦，出门记得带伞，别淋湿了我的宝贝 🌧️"; }
-                if(code >= 71 && code <= 82) { weatherStr = "雪"; tips = "下雪了！记得穿暖和点，想要一个拥抱吗？❄️"; }
-
-                weatherText.innerHTML = `抓到你了！<br>你那里现在 ${temp}℃，天气${weatherStr}。<br><br><span style="color:#ff8ca3; font-size:18px;">${tips}</span>`;
-            } catch (err) {
-                weatherText.innerHTML = "网络好像有点小调皮。<br>不过没关系，有我的每一天都是好天气！☀️";
-            }
-            btnEnter.style.display = 'inline-block';
-        }, (error) => {
-            weatherText.innerHTML = "哎呀，没有拿到位置信息呢。<br>没关系，反正你在我心里~ 🌌";
-            btnEnter.style.display = 'inline-block';
-        });
-    } else {
-        weatherText.innerHTML = "设备不支持定位功能呢。<br>直接进来吧！";
-        btnEnter.style.display = 'inline-block';
-    }
-});
+document.addEventListener('pointerdown', unmuteMusic, { once: true, passive: true });
+document.addEventListener('touchstart', unmuteMusic, { once: true, passive: true });
+document.addEventListener('click', unmuteMusic, { once: true, passive: true });
 
 btnEnter.addEventListener('click', () => {
     welcomeScreen.style.opacity = '0';
