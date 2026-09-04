@@ -24,8 +24,6 @@ html, body {
     background-size: cover; background-position: center; 
     transition: box-shadow 0.3s, border-color 0.3s;
     will-change: transform;
-    backface-visibility: hidden;
-    -webkit-backface-visibility: hidden;
     contain: layout style;
     user-select: none;
     -webkit-user-select: none;
