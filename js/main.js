@@ -395,6 +395,7 @@ function init() {
         blending: THREE.AdditiveBlending, depthWrite: false }));
     const decorGroup = new THREE.Group();
     decorGroup.position.set(0, 0, 0);
+    decorGroup.scale.set(1.6, 1.6, 1.6);
     decorGroup.add(decorPoints);
     sceneWebGL.add(decorGroup);
 
@@ -760,31 +761,40 @@ function decorScatter() {
     return arr;
 }
 function showDecor(patternArr) {
-    return new Promise(res => {
-        const n3 = patternArr.length;
-        const posAttr = decorPoints.geometry.attributes.position;
-        const scatter = decorScatter();
-        const t0 = performance.now();
-        const dur = 1200;
-        const timer = setInterval(() => {
-            const p = Math.min(1, (performance.now() - t0) / dur);
-            const e = p < 0.5 ? 4*p*p*p : 1 - Math.pow(-2*p+2, 3)/2;
-            for (let i = 0; i < 800; i++) {
-                const k = i*3;
-                if (k < n3) {
-                    posAttr.array[k] = scatter[k]*(1-e) + patternArr[k]*e;
-                    posAttr.array[k+1] = scatter[k+1]*(1-e) + patternArr[k+1]*e;
-                    posAttr.array[k+2] = scatter[k+2]*(1-e) + patternArr[k+2]*e;
+    const n3 = patternArr.length;
+    const posAttr = decorPoints.geometry.attributes.position;
+    // 从当前位置散开，再汇聚到新图案（两阶段切换动画）
+    const from = posAttr.array.slice();
+    const scatter = decorScatter();
+    const t0 = performance.now();
+    const dur = 900;
+    if (decorTimer) clearInterval(decorTimer);
+    decorTimer = setInterval(() => {
+        const p = Math.min(1, (performance.now() - t0) / dur);
+        for (let i = 0; i < 800; i++) {
+            const k = i*3;
+            if (k < n3) {
+                if (p < 0.4) {
+                    const e1 = (p/0.4 < 0.5) ? 4*Math.pow(p/0.4,3) : 1 - Math.pow(-2*(p/0.4)+2,3)/2;
+                    posAttr.array[k] = from[k] + (scatter[k]-from[k])*e1;
+                    posAttr.array[k+1] = from[k+1] + (scatter[k+1]-from[k+1])*e1;
+                    posAttr.array[k+2] = from[k+2] + (scatter[k+2]-from[k+2])*e1;
                 } else {
-                    posAttr.array[k] *= .96;
-                    posAttr.array[k+1] *= .96;
-                    posAttr.array[k+2] *= .96;
+                    const q = (p-0.4)/0.6;
+                    const e2 = q < 0.5 ? 4*q*q*q : 1 - Math.pow(-2*q+2,3)/2;
+                    posAttr.array[k] = scatter[k] + (patternArr[k]-scatter[k])*e2;
+                    posAttr.array[k+1] = scatter[k+1] + (patternArr[k+1]-scatter[k+1])*e2;
+                    posAttr.array[k+2] = scatter[k+2] + (patternArr[k+2]-scatter[k+2])*e2;
                 }
+            } else {
+                posAttr.array[k] *= .96;
+                posAttr.array[k+1] *= .96;
+                posAttr.array[k+2] *= .96;
             }
-            posAttr.needsUpdate = true;
-            if (p >= 1) { clearInterval(timer); res(); }
-        }, 16);
-    });
+        }
+        posAttr.needsUpdate = true;
+        if (p >= 1) { clearInterval(decorTimer); decorTimer = null; }
+    }, 16);
 }
 async function combinePatterns(list) {
     const offsets = [
@@ -844,9 +854,21 @@ async function playMessage() {
     animateTrunk(false); animateFerris(false);
     await moveCameraToText();
     await wait(400);
+    // 图案每秒轮播（带切换动画）
+    const patterns = [buildStarPattern, buildHeartPattern, buildSnowflakePattern, buildCatPattern, buildDogPattern];
+    let patIdx = 0;
+    const nextPattern = () => {
+        showDecor(combinePatterns([
+            patterns[patIdx % patterns.length],
+            patterns[(patIdx+1) % patterns.length],
+            patterns[(patIdx+2) % patterns.length]
+        ]));
+        patIdx++;
+    };
+    nextPattern();
+    const patTimer = setInterval(nextPattern, 1000);
+
     for (let i = 0; i < MESSAGE_TEXT.length; i++) {
-        // 同时显示 3 个图案（星星 + 爱心 + 雪花）
-        await showDecor(combinePatterns([buildStarPattern, buildHeartPattern, buildSnowflakePattern]));
         letterOverlay.textContent = '';
         letterOverlay.style.opacity = '1';   // 淡入（CSS transition）
         await typeMessage(MESSAGE_TEXT[i]);
@@ -857,6 +879,8 @@ async function playMessage() {
             await wait(300);
         }
     }
+    clearInterval(patTimer);
+    if (decorTimer) clearInterval(decorTimer);
     const blackout = document.getElementById('blackout');
     if (blackout) blackout.classList.add('show');
     await wait(650);
@@ -971,6 +995,7 @@ let tapTimer = null;
 let tourPlaying = false;
 let tourTimer = null;
 let moveTimer = null;
+let decorTimer = null;
 window.addEventListener('pointerdown', (e) => {
     if (messagePlaying || tourPlaying) return;
     if (e.target.closest && e.target.closest('.element')) return;
