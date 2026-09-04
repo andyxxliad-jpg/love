@@ -23,9 +23,10 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #05030c; c
 #page-ind { position: absolute; top: 4vh; right: 4vw; font-size: 14px; color: #e8ecff;
   background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.25); border-radius: 20px; padding: 6px 14px; }
 #hint { position: absolute; bottom: 3.5vh; left: 0; right: 0; text-align: center; font-size: 13px; color: #cfd6ff; opacity: .65; }
-.book-domtext { position: relative; display: none; background: transparent; color: #fff;
+.book-domtext { position: relative; display: block; background: transparent; color: #fff;
   padding: 20px 24px; font: 17px/2 'ZCOOL KuaiLe', 'PingFang SC', sans-serif;
-  letter-spacing: 1px; text-shadow: 0 0 8px rgba(255,255,255,.7); white-space: pre-wrap; }
+  letter-spacing: 1px; text-shadow: 0 0 10px rgba(255,255,255,.85), 0 0 22px rgba(255,180,220,.5);
+  white-space: pre-wrap; transition: opacity .25s ease; }
 </style>
 </head>
 <body>
@@ -353,13 +354,10 @@ function gatherText(text, onDone) {
     targets = [];
   }
   if (targets.length/3 < 120) {
-    // 粒子采样失败 → DOM 文字兜底
-    domText.element.style.display = 'block';
-    domText.element.textContent = text;
+    // 粒子采样失败：DOM 文字已经是主要显示，粒子氛围跳过
     if (onDone) onDone();
     return;
   }
-  domText.element.style.display = 'none';
   const tPos = textPoints.geometry.attributes.position;
   const scatter = scatterOffsets();
   const n3 = targets.length;
@@ -380,7 +378,7 @@ function gatherText(text, onDone) {
   }, onDone);
 }
 
-// ---------- 翻页（纯粒子：旧字散开 → 新字汇聚） ----------
+// ---------- 翻页（纯粒子：旧字散开 → 新字汇聚，DOM 文字同步切换） ----------
 function goToPage(newIndex) {
   if (busy) return;
   newIndex = clamp(newIndex, 0, TOTAL_PAGES-1);
@@ -389,6 +387,7 @@ function goToPage(newIndex) {
   const targetPage = newIndex;
   scatterText(() => {
     pageIndex = targetPage;
+    domText.element.textContent = PAGES_TEXT[pageIndex];
     $('page-ind').textContent = `第 ${pageIndex+1} / ${TOTAL_PAGES} 页`;
     gatherText(PAGES_TEXT[pageIndex], () => {
       busy = false;
@@ -429,7 +428,8 @@ function start() {
     for (let i = 0; i < from.length; i++) fa.array[i] = from[i]*(1-p) + frameBase[i]*p;
     fa.needsUpdate = true;
   }, () => {
-    // 第一段文字汇聚
+    // DOM 文字常显 + 第一段文字粒子氛围汇聚
+    domText.element.textContent = PAGES_TEXT[0];
     gatherText(PAGES_TEXT[0]);
   });
 }
