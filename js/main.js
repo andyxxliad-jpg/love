@@ -383,6 +383,15 @@ function init() {
         objectCSS.position.z = 0;
         sceneCSS.add( objectCSS );
         objects.push( objectCSS );
+
+        // 背面面板：与正面共享同一照片，绕 Y 轴旋转 180 度，爱心旋转时背面不再空白。
+        const backElement = document.createElement( 'div' );
+        backElement.className = 'element element-back';
+        backElement.style.backgroundImage = `url('assets/images/thumbs/${imgIndex}.webp')`;
+        const backCSS = new THREE.CSS3DObject( backElement );
+        backCSS.rotation.y = Math.PI;
+        objectCSS.add( backCSS );
+        objectCSS.userData.backElement = backElement;
     }
 
     const scale = 45; 
@@ -478,6 +487,7 @@ function enterAnimation() {
         const imgIndex = (i % totalUploadedPhotos) + 1;
         // 入场阶段先显示轻量预览图，避免大量高清图解码造成卡顿。
         object.element.style.backgroundImage = `url('assets/images/thumbs/${imgIndex}.webp')`;
+        if (object.userData.backElement) object.userData.backElement.style.backgroundImage = `url('assets/images/thumbs/${imgIndex}.webp')`;
         object.position.set(
             4000 + Math.random() * 2000,
             (Math.random() - 0.5) * 2400,
@@ -501,6 +511,7 @@ function enterAnimation() {
         for (let i = 0; i < objects.length; i++) {
             const imgIndex = (i % totalUploadedPhotos) + 1;
             objects[i].element.style.backgroundImage = `url('assets/images/${imgIndex}.webp')`;
+            if (objects[i].userData.backElement) objects[i].userData.backElement.style.backgroundImage = `url('assets/images/${imgIndex}.webp')`;
         }
     }, swapDelay);
 }
