@@ -849,7 +849,7 @@ function buildNameParticles() {
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, 900, 300);
     ctx.fillStyle = '#fff';
-    ctx.font = 'bold 120px "PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif';
+    ctx.font = 'bold 110px "Caveat","Kaiti SC","KaiTi","楷体","STKaiti",sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('andy ♥ 陶陶', 450, 150);
@@ -858,8 +858,8 @@ function buildNameParticles() {
     for (let y = 0; y < 300; y += 4) for (let x = 0; x < 900; x += 4) {
         const i = (y * 900 + x) * 4;
         if (data[i] > 150 && data[i+1] > 150 && data[i+2] > 150) {
-            const px = (x / 900 - .5) * 1700 + (Math.random() - .5) * 24;
-            const py = (.5 - y / 300) * 560 + (Math.random() - .5) * 24;
+            const px = (x / 900 - .5) * 1150 + (Math.random() - .5) * 24;
+            const py = (.5 - y / 300) * 380 + (Math.random() - .5) * 24;
             pts.push(px, py, (Math.random() - .5) * 12);
         }
     }
@@ -876,6 +876,15 @@ function nameScatter() {
 }
 function showName() {
     nameVisible = true;
+    // 散开装饰图案，避免中间出现多余的圈
+    const dp = decorPoints.geometry.attributes.position;
+    const sc = decorScatter();
+    for (let i = 0; i < 800; i++) {
+        dp.array[i*3] = sc[i*3];
+        dp.array[i*3+1] = sc[i*3+1];
+        dp.array[i*3+2] = sc[i*3+2];
+    }
+    dp.needsUpdate = true;
     const targets = buildNameParticles();
     const n3 = targets.length;
     const posAttr = namePoints.geometry.attributes.position;
@@ -975,25 +984,25 @@ async function playMessage() {
         const t = e * Math.PI * 2;
         // 电影级运镜：推近 → 环绕展示 → 名字特写 → 拉远
         const p = raw;
-        if (p < 0.15) {
-            const q = p / 0.15;
-            const r = 3000 - q * 950;
+        if (p < 0.12) {
+            const q = p / 0.12;
+            const r = 3200 - q * 1150;
             const ang = q * Math.PI;
             camera.position.set(Math.cos(ang)*r, Math.sin(ang)*r, 0);
-        } else if (p < 0.5) {
+        } else if (p < 0.58) {
             if (!nameShown) { scatterName(); }
-            const tt = ((p - 0.15) / 0.35) * Math.PI * 2;
+            const tt = ((p - 0.12) / 0.46) * Math.PI * 2;
             camera.position.set(Math.cos(tt)*2050, Math.sin(tt)*2050, Math.sin(tt*2)*160);
-        } else if (p < 0.82) {
+        } else if (p < 0.8) {
             if (!nameShown) { showName(); nameShown = true; }
-            const q = (p - 0.5) / 0.32;
-            camera.position.set(0, 0, 1700 - q * 400);
+            const q = (p - 0.58) / 0.22;
+            camera.position.set(0, 0, 1700 - q * 350);
         } else {
             if (nameShown) { scatterName(); nameShown = false; }
-            const q = (p - 0.82) / 0.18;
-            const r = 1300 + q * 1700;
+            const q = (p - 0.8) / 0.2;
+            const r = 1350 + q * 1800;
             const ang = q * Math.PI;
-            camera.position.set(Math.cos(ang)*r, Math.sin(ang)*r, 0);
+            camera.position.set(Math.cos(ang)*r, Math.sin(ang)*r, Math.sin(q*Math.PI)*300);
         }
         controls.target.set(0, 0, 0);
         camera.lookAt(controls.target);
@@ -1114,8 +1123,10 @@ function cameraTour() {
             // 爱心：镜头沿轮廓临摹，准心逐个指向爱心上的照片
             const x = 16 * Math.pow(Math.sin(t), 3) * 58;
             const y = (13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t)) * 58;
+            const x45 = 16 * Math.pow(Math.sin(t), 3) * 45;
+            const y45 = (13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t)) * 45;
             camera.position.set(x, y + 150, 620);
-            controls.target.set(0, 150, 0);
+            controls.target.set(x45, y45 + 150, 0);
         } else {
             // 其他形状：电影级环绕 + 俯仰呼吸，准心跟随形状
             camera.position.set(Math.cos(t)*2050, 180 + Math.sin(t*2.5)*340, Math.sin(t)*2050);
