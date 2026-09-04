@@ -472,8 +472,8 @@ function enterAnimation() {
             <div class="book-final-page book-final-right"></div>
             ${pageImages.map((url, i) => `
                 <div class="book-sheet" data-page="${i + 1}">
-                    <div class="book-face book-front" style="background-image:url(\"${url}\")"></div>
-                    <div class="book-face book-back" style="background-image:url(\"${url}\")"></div>
+                    <div class="book-face book-front" style="background-image:url(\"${url}\")"><span class="page-number">${i + 1}</span></div>
+                    <div class="book-face book-back" style="background-image:url(\"${url}\")"><span class="page-number">${i + 1}</span></div>
                 </div>`).join('')}
             <div class="book-cover book-cover-front"></div>
         </div>`;
@@ -498,16 +498,16 @@ function enterAnimation() {
         setTimeout(() => book.classList.add('book-open'), 120);
         // 每一页连续翻过，六页翻完约 4 秒。
         sheets.forEach((sheet, index) => {
-            sheet.style.zIndex = String(pageCount - index);
-            setTimeout(() => sheet.classList.add('page-turned'), 680 + index * 560);
+            sheet.style.zIndex = String(pageCount - index + 10);
+            setTimeout(() => sheet.classList.add('page-turned'), 900 + index * 700);
         });
-        setTimeout(() => book.classList.add('book-spread'), 4300);
+        setTimeout(() => book.classList.add('book-spread'), 5200);
         // 镜头推进书的中缝，随后让照片从四面八方进入爱心。
-        setTimeout(() => book.classList.add('book-zoom'), 4850);
+        setTimeout(() => book.classList.add('book-zoom'), 5900);
         setTimeout(() => {
             stage.classList.add('book-exit');
             launchHeartFromBook(previousAutoRotate, stage);
-        }, 5750);
+        }, 6800);
     });
 }
 
