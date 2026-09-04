@@ -275,7 +275,6 @@ function init() {
     const trunkCount = 500;
     trunkBasePos = new Float32Array(trunkCount * 3);
     trunkTargetPos = new Float32Array(trunkCount * 3);
-    const trunkCols = new Float32Array(trunkCount * 3);
     for (let i = 0; i < trunkCount; i++) {
         trunkBasePos[i*3] = (Math.random() - .5) * 5000;
         trunkBasePos[i*3+1] = (Math.random() - .5) * 5000;
@@ -287,7 +286,7 @@ function init() {
             trunkTargetPos[i*3] = Math.cos(a) * r;
             trunkTargetPos[i*3+1] = -620 - Math.random() * 950;
             trunkTargetPos[i*3+2] = Math.sin(a) * r;
-            trunkCols[i*3] = 1; trunkCols[i*3+1] = .94; trunkCols[i*3+2] = .82;
+            trunkTargetCol[i*3] = 1; trunkTargetCol[i*3+1] = .94; trunkTargetCol[i*3+2] = .82;
         } else {
             // 树顶星：金色光晕
             const a = Math.random() * Math.PI * 2;
@@ -295,7 +294,15 @@ function init() {
             trunkTargetPos[i*3] = Math.cos(a) * r;
             trunkTargetPos[i*3+1] = 920 + Math.random() * 140;
             trunkTargetPos[i*3+2] = Math.sin(a) * r;
-            trunkCols[i*3] = 1; trunkCols[i*3+1] = .84; trunkCols[i*3+2] = .45;
+            trunkTargetCol[i*3] = 1; trunkTargetCol[i*3+1] = .84; trunkTargetCol[i*3+2] = .45;
+        }
+    }
+    trunkTargetCol = new Float32Array(trunkCount * 3);
+    for (let i = 0; i < trunkCount; i++) {
+        if (i < 440) {
+            trunkTargetCol[i*3] = 1; trunkTargetCol[i*3+1] = .94; trunkTargetCol[i*3+2] = .82;
+        } else {
+            trunkTargetCol[i*3] = 1; trunkTargetCol[i*3+1] = .84; trunkTargetCol[i*3+2] = .45;
         }
     }
     const trunkGeo = new THREE.BufferGeometry();
@@ -374,6 +381,52 @@ function init() {
         }
     }
 
+    // 雪花：六条星芒臂从中心向外伸展
+    for ( let i = 0; i < objects.length; i ++ ) {
+        const arm = i % 6;
+        const idx = Math.floor( i / 6 );
+        const a = arm * Math.PI / 3;
+        const r = 140 + idx * 48;
+        const object = new THREE.Object3D();
+        object.position.set( Math.cos( a ) * r, Math.sin( a ) * r, ( Math.random() - .5 ) * 90 );
+        object.lookAt( 0, 0, 0 );
+        targets.snowflake.push( object );
+    }
+
+    // 摩天轮：大圆环，照片面向圆心
+    for ( let i = 0; i < objects.length; i ++ ) {
+        const a = ( i / objects.length ) * Math.PI * 2;
+        const object = new THREE.Object3D();
+        object.position.set( Math.cos( a ) * 1000, Math.sin( a ) * 1000, 0 );
+        object.lookAt( 0, 0, 0 );
+        targets.ferris.push( object );
+    }
+
+    // 银河：两条旋臂向外旋转展开
+    for ( let i = 0; i < objects.length; i ++ ) {
+        const arm = i % 2;
+        const idx = Math.floor( i / 2 );
+        const r = 200 + idx * 20;
+        const a = idx * 0.22 + arm * Math.PI;
+        const object = new THREE.Object3D();
+        object.position.set( Math.cos( a ) * r, ( Math.random() - .5 ) * 130, Math.sin( a ) * r );
+        object.lookAt( 0, 0, 0 );
+        targets.galaxy.push( object );
+    }
+
+    // 风铃：多列垂挂的照片串，列间波浪错落
+    const cols = 8;
+    for ( let i = 0; i < objects.length; i ++ ) {
+        const col = i % cols;
+        const idx = Math.floor( i / cols );
+        const x = ( col - cols / 2 ) * 260;
+        const y = 700 - idx * 95;
+        const z = Math.sin( col * 1.1 ) * 170 + ( Math.random() - .5 ) * 50;
+        const object = new THREE.Object3D();
+        object.position.set( x, y, z );
+        targets.windchime.push( object );
+    }
+
     rendererCSS = new THREE.CSS3DRenderer();
     rendererCSS.setSize( window.innerWidth, window.innerHeight );
     rendererCSS.domElement.style.position = 'absolute';
@@ -441,17 +494,17 @@ function enterAnimation() {
 }
 
 let trunkBasePos, trunkTargetPos, trunkPoints;
-let currentShape = 'heart';
+let trunkTargetCol;
+const SHAPE_NAMES = [ 'heart', 'tree', 'snowflake', 'ferris', 'galaxy', 'windchime' ];
+let currentShapeIndex = 0;
 let shapeBusy = false;
 function animateTrunk(toTree) {
     const geo = trunkPoints.geometry;
     const posAttr = geo.attributes.position;
     const colAttr = geo.attributes.color;
-    const state = { p: 0 };
-    const from = toTree ? 0 : 1;
-    const to = toTree ? 1 : 0;
+    const state = { p: toTree ? 0 : 1 };
     new TWEEN.Tween(state)
-        .to({ p: to }, 1700)
+        .to({ p: toTree ? 1 : 0 }, 1700)
         .easing(TWEEN.Easing.Cubic.InOut)
         .onUpdate(() => {
             const p = state.p;
@@ -459,17 +512,9 @@ function animateTrunk(toTree) {
                 posAttr.array[i] = trunkBasePos[i] * (1 - p) + trunkTargetPos[i] * p;
             }
             posAttr.needsUpdate = true;
-            for (let i = 0; i < trunkTargetPos.length; i += 3) {
-                if (toTree) {
-                    const warm = p;
-                    colAttr.array[i] = 1;
-                    colAttr.array[i+1] = 1 - (1 - .94) * warm - .06 * warm * (i % 2);
-                    colAttr.array[i+2] = 1 - (1 - .82) * warm;
-                } else {
-                    colAttr.array[i] = 1;
-                    colAttr.array[i+1] = 1;
-                    colAttr.array[i+2] = 1;
-                }
+            for (let i = 0; i < trunkTargetCol.length; i++) {
+                // 目标色（树干暖白 / 树顶金）与白色之间过渡
+                colAttr.array[i] = 1 - (1 - trunkTargetCol[i]) * p;
             }
             colAttr.needsUpdate = true;
         })
@@ -479,15 +524,11 @@ function switchShape() {
     if (shapeBusy) return;
     shapeBusy = true;
     setTimeout(() => { shapeBusy = false; }, 2300);
-    if (currentShape === 'heart') {
-        currentShape = 'tree';
-        transform(targets.tree, 1800);
-        animateTrunk(true);
-    } else {
-        currentShape = 'heart';
-        transform(targets.heart, 1800);
-        animateTrunk(false);
-    }
+    currentShapeIndex = ( currentShapeIndex + 1 ) % SHAPE_NAMES.length;
+    const name = SHAPE_NAMES[ currentShapeIndex ];
+    transform( targets[ name ], 1800 );
+    if ( name === 'tree' ) animateTrunk( true );
+    else animateTrunk( false );
 }
 let lastTapTime = 0, lastTapX = 0, lastTapY = 0;
 let suppressPhotoClick = false;
