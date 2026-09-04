@@ -541,14 +541,8 @@ function enterAnimation() {
             .delay(delay)
             .start();
     }
-    // 动画结束后先清空卡片，再每 280ms 浮现一张高清原图。
+    // 动画结束后，直接在极致压缩预览图上逐张替换成高清原图（不做全局清空，避免黑屏闪烁）。
     const revealDelay = duration + 900;
-    setTimeout(() => {
-        for (let i = 0; i < objects.length; i++) {
-            objects[i].element.style.backgroundImage = 'none';
-            if (objects[i].userData.backElement) objects[i].userData.backElement.style.backgroundImage = 'none';
-        }
-    }, revealDelay);
     for (let i = 0; i < objects.length; i++) {
         setTimeout(() => {
             const imgIndex = (i % totalUploadedPhotos) + 1;
