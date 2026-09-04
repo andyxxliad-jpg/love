@@ -246,6 +246,7 @@ let letterOverlay = null;
 let decorPoints = null;
 let namePoints = null;
 let nameTimer = null;
+let nameVisible = false;
 const MESSAGE_TEXT = [
   '其实我不太会表达自己，也是一个特别怕麻烦的人。可是你的出现让我觉得我也是生动的人。谢谢你给了我一个很好的温度，让我感受到了爱和温暖。想起你，我就觉得有了依靠，做事情都多了一份底气。难怪大家都说，被爱好似有靠山。',
   '其实，我真的远比你想象中更需要你，更在意你。谢谢你总能照顾到我的情绪，在意我说过的话。相处这么久也让我很开心，因为有你在。谢谢你靠近我、温暖我、了解我、陪伴我。',
@@ -857,9 +858,9 @@ function buildNameParticles() {
     for (let y = 0; y < 300; y += 4) for (let x = 0; x < 900; x += 4) {
         const i = (y * 900 + x) * 4;
         if (data[i] > 150 && data[i+1] > 150 && data[i+2] > 150) {
-            const px = (x / 900 - .5) * 1700;
-            const py = (.5 - y / 300) * 560;
-            pts.push(px, py, 0);
+            const px = (x / 900 - .5) * 1700 + (Math.random() - .5) * 24;
+            const py = (.5 - y / 300) * 560 + (Math.random() - .5) * 24;
+            pts.push(px, py, (Math.random() - .5) * 12);
         }
     }
     return pts;
@@ -874,6 +875,7 @@ function nameScatter() {
     return arr;
 }
 function showName() {
+    nameVisible = true;
     const targets = buildNameParticles();
     const n3 = targets.length;
     const posAttr = namePoints.geometry.attributes.position;
@@ -901,6 +903,7 @@ function showName() {
     }, 16);
 }
 function scatterName() {
+    nameVisible = false;
     if (nameTimer) clearInterval(nameTimer);
     const posAttr = namePoints.geometry.attributes.position;
     const scatter = nameScatter();
@@ -1210,6 +1213,9 @@ function animate() {
     }
     
     controls.update();
+    if (nameVisible && namePoints) {
+        namePoints.material.size = 48 + Math.sin(performance.now() * 0.004) * 8;
+    }
     if (SHAPE_NAMES[ currentShapeIndex ] === 'ferris' && !shapeBusy) {
         const d = 0.005;
         const c = Math.cos(d), s = Math.sin(d);
