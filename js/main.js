@@ -49,6 +49,7 @@ function preloadAllPhotos() {
 }
 
 function onPhotosReady() {
+    scheduleMessageTimer();
     if (isFirstTime) return; // 首次访问：等用户点进入，再弹信
     startExperience();
 }
@@ -88,6 +89,14 @@ let audio = document.getElementById('bgm');
 // 因此改为：用户第一次与页面交互（点击/触摸）时立即开始播放，兼容性最好。
 let musicStarted = false;
 let messageTimerSet = false;
+function scheduleMessageTimer() {
+    // 88 秒文字动画必须等「照片就绪 + 音乐已播放」两者都满足才启动，
+    // 避免照片还在准备时动画提前播放。
+    if (messageTimerSet || !photosReady || !musicStarted) return;
+    if (!Object.assign(defaultSettings(), loadSettings()).letterOn) return;
+    messageTimerSet = true;
+    setTimeout(playMessage, 88000);
+}
 function startMusic() {
     if (!audio || musicStarted) return;
     if (!Object.assign(defaultSettings(), loadSettings()).musicOn) return;
@@ -95,17 +104,9 @@ function startMusic() {
     audio.muted = false;
     const p = audio.play();
     if (p && p.then) {
-        p.then(() => {
-            if (!messageTimerSet && Object.assign(defaultSettings(), loadSettings()).letterOn) {
-                messageTimerSet = true;
-                setTimeout(playMessage, 88000);
-            }
-        }).catch(() => { musicStarted = false; });
+        p.then(() => { scheduleMessageTimer(); }).catch(() => { musicStarted = false; });
     } else {
-        if (!messageTimerSet && Object.assign(defaultSettings(), loadSettings()).letterOn) {
-            messageTimerSet = true;
-            setTimeout(playMessage, 88000);
-        }
+        scheduleMessageTimer();
     }
 }
 audio.preload = 'auto';
