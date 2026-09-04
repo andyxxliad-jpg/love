@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="css/style.css?v=15">
+    <link rel="stylesheet" href="css/style.css?v=16">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
     <script src="https://unpkg.com/three@0.128.0/examples/js/renderers/CSS3DRenderer.js"></script>
@@ -18,6 +18,15 @@
 <body>
     <div id="webgl-container"></div>
     <div id="css-container"></div>
+
+    <div id="photo-loading-screen" class="photo-loading-screen" aria-live="polite">
+        <div class="photo-loading-box">
+            <h2 class="en-font">Preparing our memories</h2>
+            <p id="photo-loading-status">正在准备照片…</p>
+            <div class="photo-progress"><div id="photo-progress-bar"></div></div>
+            <small id="photo-loading-count">照片准备中 0 / 120</small>
+        </div>
+    </div>
 
     <div id="welcome-screen" class="welcome-screen">
         <div class="welcome-box">
@@ -52,28 +61,12 @@
             回忆正在加载中...
         </div>
 
-        <div class="nav-bar">
-            <div class="nav-btn" onclick="showModal('timeline-modal')">📅 时光碎片</div>
-            <div class="nav-btn" onclick="showModal('letter-modal')">✉️ 给你的信</div>
-        </div>
     </div>
 
     <div id="photo-modal" class="modal" onclick="hideModal('photo-modal')">
         <div class="modal-content photo-modal-content" onclick="event.stopPropagation()">
             <span class="close" onclick="hideModal('photo-modal')" style="top: -30px; right: 0;">&times;</span>
             <img id="enlarged-photo" src="" alt="我们的回忆">
-        </div>
-    </div>
-
-    <div id="timeline-modal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="hideModal('timeline-modal')">&times;</span>
-            <h2 class="modal-title">我们的碎片</h2>
-            <div class="calendar-grid" id="calendar-grid"></div>
-            <div id="memory-display" class="memory-display">
-                <div id="m-date" class="m-date"></div>
-                <div id="m-text" class="m-text"></div>
-            </div>
         </div>
     </div>
 
@@ -88,6 +81,6 @@
     </div>
 
     <audio id="bgm" src="assets/audio/1.mp3" loop></audio>
-    <script src="js/main.js?v=15"></script>
+    <script src="js/main.js?v=16"></script>
 </body>
 </html>

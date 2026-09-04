@@ -26,6 +26,55 @@ const weatherText = document.getElementById('weather-text');
 const welcomeScreen = document.getElementById('welcome-screen');
 const mainUI = document.getElementById('main-ui');
 let audio = document.getElementById('bgm');
+let photosReady = false;
+let photosLoaded = 0;
+
+function updatePhotoLoading() {
+    const bar = document.getElementById('photo-progress-bar');
+    const count = document.getElementById('photo-loading-count');
+    const percent = Math.round((photosLoaded / totalUploadedPhotos) * 100);
+    if (bar) bar.style.width = `${percent}%`;
+    if (count) count.textContent = `照片准备中 ${photosLoaded} / ${totalUploadedPhotos}`;
+}
+
+function preloadAllPhotos() {
+    let next = 1;
+    const worker = async () => {
+        while (next <= totalUploadedPhotos) {
+            const index = next++;
+            await new Promise(resolve => {
+                const image = new Image();
+                image.decoding = 'async';
+                image.onload = () => {
+                    const done = () => resolve();
+                    if (image.decode) image.decode().catch(() => {}).finally(done);
+                    else done();
+                };
+                image.onerror = resolve;
+                image.src = `assets/images/${index}.webp`;
+            });
+            photosLoaded++;
+            updatePhotoLoading();
+        }
+    };
+    Promise.all(Array.from({ length: 4 }, worker)).then(() => {
+        photosLoaded = totalUploadedPhotos;
+        updatePhotoLoading();
+        photosReady = true;
+        const status = document.getElementById('photo-loading-status');
+        if (status) status.textContent = '照片准备完成';
+        const screen = document.getElementById('photo-loading-screen');
+        if (screen) screen.classList.add('hidden');
+    });
+}
+
+function tryStartMusic() {
+    if (!audio) return;
+    audio.play().catch(() => {});
+}
+tryStartMusic();
+document.addEventListener('pointerdown', tryStartMusic, { once: true, passive: true });
+document.addEventListener('touchstart', tryStartMusic, { once: true, passive: true });
 
 btnLocation.addEventListener('click', () => {
     weatherText.innerHTML = "正在感应你的位置... 🛰️";
@@ -77,6 +126,7 @@ btnEnter.addEventListener('click', () => {
         controlsUI.classList.remove('hidden');
         uiFadeTimeout = setTimeout(() => { controlsUI.classList.add('hidden'); }, 3000);
         startQuotesCycle();
+        showModal('letter-modal');
     }, 1000);
 });
 
@@ -146,42 +196,27 @@ function hideModal(id) {
     }, 300); 
 }
 
-const calendarGrid = document.getElementById('calendar-grid');
-const memoryDisplay = document.getElementById('memory-display');
-for(let i=1; i<=35; i++) {
-    let div = document.createElement('div');
-    div.className = 'day-cell';
-    if(i <= 31) div.innerText = i;
-    if(i === 7 || i === 14 || i === 25) {
-        div.classList.add('active');
-        div.onclick = () => {
-            memoryDisplay.style.display = 'block';
-            document.getElementById('m-date').innerText = `2026年某月${i}日`;
-            document.getElementById('m-text').innerText = "不论天气如何变幻，那天你在身边，就是值得永远标记的日子。";
-        };
-    }
-    calendarGrid.appendChild(div);
-}
-
 const letterText = "谢谢你来爱一个这么糟糕的我。\n\n我的情绪像天气总是飘忽不定，往往最伤人的话都对着你说。其实我也知道自己这么子做会让你我渐行渐远，但我还是会有点小任性。有时候我的一些小脾气，只是想让你在意我，更喜欢我。\n\n我知道自己很糟糕，脾气很奇怪也没有那么好看，你总说拥有我很幸福，其实是我有你好幸运。\n\n好幸运遇到了一个这么好的你。你总是很厉害，可以注意到我的坏情绪，老是想尽办法逗我开心。有的时候明明很不开心，你和我说话的时候，我就把烦恼抛之脑后了。谢谢你给了我足够的安全感，有你真的好幸福……\n\n生活是乱糟糟的，有你一切都都很安稳。我喜欢安稳的生活，爱吃的东西我会吃一辈子，喜欢听的歌我也会执着的听上千万遍。\n\n你也一样，我一旦依赖上一个人就再也不会放手啦。我要和你一辈子。";
 
 let typeIndex = 0;
+let typewriterTimer = null;
 function startTypewriter() {
     const box = document.getElementById('typewriter-content');
-    box.innerHTML = "";
-    let timer = setInterval(() => {
-        if(typeIndex < letterText.length) {
-            let char = letterText.charAt(typeIndex);
-            box.innerHTML += (char === '\n') ? '<br>' : char;
-            typeIndex++;
-            if(box.parentElement) {
-                box.parentElement.scrollTop = box.parentElement.scrollHeight;
-            }
-        } else {
-            clearInterval(timer);
+    if (!box) return;
+    clearInterval(typewriterTimer);
+    typeIndex = 0;
+    box.classList.remove('done');
+    box.textContent = '';
+    typewriterTimer = setInterval(() => {
+        typeIndex += 1;
+        box.textContent = letterText.slice(0, typeIndex);
+        if (box.parentElement) box.parentElement.scrollTop = box.parentElement.scrollHeight;
+        if (typeIndex >= letterText.length) {
+            clearInterval(typewriterTimer);
+            typewriterTimer = null;
             box.classList.add('done');
         }
-    }, 120);
+    }, 55);
 }
 
 let camera, sceneWebGL, sceneCSS, rendererWebGL, rendererCSS;
@@ -196,6 +231,7 @@ const totalUploadedPhotos = 120;
 let particles;
 
 init();
+preloadAllPhotos();
 animate();
 
 function init() {
@@ -245,7 +281,7 @@ function init() {
         element.className = 'element';
         
         let imgIndex = (i % totalUploadedPhotos) + 1;
-        element.style.backgroundImage = `url('assets/images/${imgIndex}.png')`;
+        element.style.backgroundImage = `url('assets/images/${imgIndex}.webp')`;
         
         let pointerDownPos = { x: 0, y: 0 };
         element.addEventListener('pointerdown', (e) => {
@@ -255,7 +291,7 @@ function init() {
             const dx = Math.abs(e.clientX - pointerDownPos.x);
             const dy = Math.abs(e.clientY - pointerDownPos.y);
             if (dx < 5 && dy < 5) {
-                document.getElementById('enlarged-photo').src = `assets/images/${imgIndex}.png`;
+                document.getElementById('enlarged-photo').src = `assets/images/${imgIndex}.webp`;
                 showModal('photo-modal');
             }
         });
@@ -338,12 +374,13 @@ function init() {
 
 function enterAnimation() {
     TWEEN.removeAll();
-    // 不再播放开场飞入动画，进入后直接显示完整爱心。
     for (let i = 0; i < objects.length; i++) {
         const object = objects[i];
         const target = targets.heart[i];
         object.position.copy(target.position);
         object.rotation.copy(target.rotation);
+        object.scale.set(1, 1, 1);
+        object.visible = true;
     }
     render();
 }
@@ -404,6 +441,7 @@ if (!isFirstTime) {
         
         enterAnimation();
         startQuotesCycle();
+        showModal('letter-modal');
 
         const audioTip = document.createElement('div');
         audioTip.innerText = "点击屏幕播放我们的回忆原声 ✨";
