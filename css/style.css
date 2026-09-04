@@ -137,3 +137,6 @@ html, body {
 /* 双击提示（右下角，仅首次显示） */
 #double-tap-hint { position: fixed; right: 18px; bottom: 14vh; z-index: 3200; color: #ffd7e6; font: 18px 'ZCOOL KuaiLe', 'PingFang SC', sans-serif; background: rgba(255,255,255,.14); border: 1px solid rgba(255,170,200,.55); padding: 13px 22px; border-radius: 26px; text-shadow: 0 0 10px rgba(255,150,190,.9); letter-spacing: 1px; pointer-events: none; display: none; animation: hintPulse 1.5s ease-in-out infinite; }
 @keyframes hintPulse { 0%, 100% { opacity: .75; transform: scale(1); } 50% { opacity: 1; transform: scale(1.06); } }
+
+/* 测试按钮 */
+#test-btn { position: fixed; left: 14px; bottom: 12vh; z-index: 3300; padding: 8px 16px; border: 1px solid rgba(255,170,200,.5); border-radius: 20px; background: rgba(255,255,255,.12); color: #ffd7e6; font: 14px 'ZCOOL KuaiLe', sans-serif; cursor: pointer; }
