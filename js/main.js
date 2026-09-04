@@ -326,7 +326,7 @@ function init() {
         // 背景图不在初始化阶段加载，交给渐进式队列处理。
         element.dataset.imageIndex = imgIndex;
         element.style.backgroundColor = 'rgba(255, 140, 163, 0.08)';
-        element.style.backgroundImage = `url('assets/images/thumbs/${imgIndex}.webp')`;
+        element.style.backgroundImage = `url('assets/images/${imgIndex}.webp')`;
         photoElements.push({ element, index: imgIndex });
         
         let pointerDownPos = { x: 0, y: 0 };
@@ -521,9 +521,12 @@ if (!isFirstTime) {
         document.getElementById('main-ui').style.pointerEvents = 'none';
         
         photoFullReady.then(() => {
-            document.getElementById('main-ui').style.opacity = '1';
-            enterAnimation();
-            startQuotesCycle();
+            // 确保全部高质量照片已经绑定并完成至少一帧绘制，再启动动画。
+            requestAnimationFrame(() => {
+                document.getElementById('main-ui').style.opacity = '1';
+                enterAnimation();
+                startQuotesCycle();
+            });
         });
 
         const audioTip = document.createElement('div');
