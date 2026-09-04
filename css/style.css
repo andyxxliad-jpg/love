@@ -160,3 +160,9 @@ html, body {
 #cal-list .cal-item { padding: 8px 10px; margin: 6px 0; border-radius: 8px; background: rgba(255,255,255,.06); font-size: 14px; }
 #cal-list .cal-item b { color: #ff9fc7; }
 #announce-content, #calendar-content { font-size: 16px; line-height: 1.9; white-space: pre-wrap; }
+
+#maintenance-overlay { position: fixed; inset: 0; z-index: 9000; background: #05020a; display: none; align-items: center; justify-content: center; }
+#maintenance-overlay.show { display: flex; }
+.maint-box { text-align: center; color: #fff; }
+.maint-box h2 { font-size: 28px; color: #ff9fc7; margin-bottom: 12px; }
+.maint-box p { font-size: 15px; opacity: .7; }
