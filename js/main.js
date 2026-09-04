@@ -456,20 +456,29 @@ function init() {
 
 function enterAnimation() {
     TWEEN.removeAll();
-    const sceneContainer = document.getElementById('css-container');
     const previousAutoRotate = controls.autoRotate;
     controls.autoRotate = false;
+    const flyDuration = 900;
+    const settleDelay = 1800;
+
     for (let i = 0; i < objects.length; i++) {
         const obj = objects[i];
         const target = targets.heart[i];
-        obj.position.copy(target.position);
-        obj.rotation.copy(target.rotation);
+        obj.position.set(4000 + Math.random() * 1800, (Math.random() - 0.5) * 1800, (Math.random() - 0.5) * 1800);
+        obj.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+        const delay = i * 12;
+        new TWEEN.Tween(obj.position)
+            .to({ x: target.position.x, y: target.position.y, z: target.position.z }, 1800)
+            .easing(TWEEN.Easing.Exponential.InOut)
+            .delay(delay)
+            .start();
+        new TWEEN.Tween(obj.rotation)
+            .to({ x: target.rotation.x, y: target.rotation.y, z: target.rotation.z }, 1800)
+            .easing(TWEEN.Easing.Exponential.InOut)
+            .delay(delay)
+            .start();
     }
-    sceneContainer.classList.remove('photo-entering');
-    void sceneContainer.offsetWidth;
-    sceneContainer.classList.add('photo-entering');
-    setTimeout(() => { controls.autoRotate = previousAutoRotate; }, 3000);
-    render();
+    setTimeout(() => { controls.autoRotate = previousAutoRotate; }, settleDelay + objects.length * 12 + 1800);
 }
 
 function transform( targets, duration ) {
@@ -499,7 +508,6 @@ function onWindowResize() {
     render();
 }
 
-let lastCssRender = 0;
 function animate(now = 0) {
     requestAnimationFrame(animate);
     TWEEN.update(now);
@@ -509,10 +517,7 @@ function animate(now = 0) {
     }
     controls.update();
     rendererWebGL.render(sceneWebGL, camera);
-    if (now - lastCssRender >= 33) {
-        rendererCSS.render(sceneCSS, camera);
-        lastCssRender = now;
-    }
+    rendererCSS.render(sceneCSS, camera);
 }
 
 function render() {
